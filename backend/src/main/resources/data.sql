@@ -75,6 +75,7 @@ FROM org_dept d, org_position p, org_job_grade g
 WHERE d.code = 'FIN' AND p.code = 'FIN_SPECIALIST' AND g.code = 'G2';
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000005', '陈市场', '男', '13800000005', 'chen@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -82,6 +83,7 @@ WHERE d.code = 'MKT' AND p.code = 'MARKETING' AND g.code = 'G1'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000005');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000006', '周行政', '女', '13800000006', 'zhou@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -89,6 +91,7 @@ WHERE d.code = 'ADM' AND p.code = 'ADMIN' AND g.code = 'G1'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000006');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000007', '刘研发', '男', '13800000007', 'liu@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'PROBATION', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -96,6 +99,7 @@ WHERE d.code = 'RD' AND p.code = 'DEV' AND g.code = 'G1'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000007');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000008', '孙研发', '女', '13800000008', 'sun@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -103,6 +107,7 @@ WHERE d.code = 'RD' AND p.code = 'DEV' AND g.code = 'G2'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000008');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000009', '吴财务', '男', '13800000009', 'wu@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -110,6 +115,7 @@ WHERE d.code = 'FIN' AND p.code = 'FIN_SPECIALIST' AND g.code = 'G1'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000009');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000010', '郑市场', '女', '13800000010', 'zheng@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -117,6 +123,7 @@ WHERE d.code = 'MKT' AND p.code = 'MARKETING' AND g.code = 'G2'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000010');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000011', '何行政', '男', '13800000011', 'he@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
@@ -124,6 +131,7 @@ WHERE d.code = 'ADM' AND p.code = 'ADMIN' AND g.code = 'G2'
     AND NOT EXISTS (SELECT 1 FROM hr_employee WHERE employee_no = 'E000011');
 MERGE INTO hr_employee (employee_no, name, gender, mobile, email, dept_id, position_id, grade_id,
     hire_date, regular_date, employment_status, employee_type)
+KEY (employee_no)
 SELECT 'E000012', '高人事', '女', '13800000012', 'gao@example.com', d.id, p.id, g.id,
        CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
