@@ -3,6 +3,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:8086}"
 json() { curl -fsS "$@"; }
 login() { json -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"$2\"}" "$BASE_URL/api/auth/login"; }
+assert_success() { test "$(printf '%s' "$1" | jq -r '.code')" = 0; }
 oauth_basic() {
   printf '%s' "sap-client:sap-client-secret" | base64
 }
@@ -10,21 +11,41 @@ ADMIN="$(login admin admin123)"
 TOKEN="$(printf '%s' "$ADMIN" | jq -r '.data.token')"
 test -n "$TOKEN" && test "$TOKEN" != null
 AUTH=(-H "Authorization: Bearer $TOKEN")
-json "${AUTH[@]}" "$BASE_URL/api/auth/me" | jq .
-json "${AUTH[@]}" "$BASE_URL/api/hr/employees" | jq .
-json "${AUTH[@]}" "$BASE_URL/api/org/depts/tree" | jq .
-json "${AUTH[@]}" "$BASE_URL/api/workflow/definitions" | jq .
+ME="$(json "${AUTH[@]}" "$BASE_URL/api/auth/me")"
+assert_success "$ME"
+printf '%s\n' "$ME" | jq .
+EMPLOYEES="$(json "${AUTH[@]}" "$BASE_URL/api/hr/employees")"
+assert_success "$EMPLOYEES"
+printf '%s\n' "$EMPLOYEES" | jq .
+DEPTS="$(json "${AUTH[@]}" "$BASE_URL/api/org/depts/tree")"
+assert_success "$DEPTS"
+printf '%s\n' "$DEPTS" | jq .
+DEFINITIONS="$(json "${AUTH[@]}" "$BASE_URL/api/workflow/definitions")"
+assert_success "$DEFINITIONS"
+printf '%s\n' "$DEFINITIONS" | jq .
 ZHANG="$(login zhangsan emp123)"
 ZT="$(printf '%s' "$ZHANG" | jq -r '.data.token')"
+test -n "$ZT" && test "$ZT" != null
 INSTANCE="$(curl -fsS -H "Authorization: Bearer $ZT" -H 'Content-Type: application/json' -d '{"definitionCode":"GENERAL","title":"通用申请演示","businessType":"GENERAL","form":{"reason":"阶段一验收"}}' "$BASE_URL/api/workflow/instances/start")"
+assert_success "$INSTANCE"
 printf '%s\n' "$INSTANCE" | jq .
 INSTANCE_ID="$(printf '%s' "$INSTANCE" | jq -r '.data.id')"
+test -n "$INSTANCE_ID" && test "$INSTANCE_ID" != null
 MANAGER="$(login manager mgr123)"
 MT="$(printf '%s' "$MANAGER" | jq -r '.data.token')"
-curl -fsS -H "Authorization: Bearer $MT" "$BASE_URL/api/workflow/tasks/todo" | jq .
-TASK_ID="$(curl -fsS -H "Authorization: Bearer $MT" "$BASE_URL/api/workflow/tasks/todo" | jq -r '.data[-1].id')"
-curl -fsS -H "Authorization: Bearer $MT" -H 'Content-Type: application/json' -d '{"comment":"同意"}' "$BASE_URL/api/workflow/tasks/$TASK_ID/approve" | jq .
-curl -fsS -H "Authorization: Bearer $ZT" "$BASE_URL/api/workflow/instances/$INSTANCE_ID" | jq '.data.status'
+test -n "$MT" && test "$MT" != null
+TODO="$(curl -fsS -H "Authorization: Bearer $MT" "$BASE_URL/api/workflow/tasks/todo")"
+assert_success "$TODO"
+printf '%s\n' "$TODO" | jq .
+TASK_ID="$(printf '%s' "$TODO" | jq -r '.data[-1].id')"
+test -n "$TASK_ID" && test "$TASK_ID" != null
+APPROVE="$(curl -fsS -H "Authorization: Bearer $MT" -H 'Content-Type: application/json' -d '{"comment":"同意"}' "$BASE_URL/api/workflow/tasks/$TASK_ID/approve")"
+assert_success "$APPROVE"
+printf '%s\n' "$APPROVE" | jq .
+INSTANCE_DETAIL="$(curl -fsS -H "Authorization: Bearer $ZT" "$BASE_URL/api/workflow/instances/$INSTANCE_ID")"
+assert_success "$INSTANCE_DETAIL"
+test "$(printf '%s' "$INSTANCE_DETAIL" | jq -r '.data.status')" = APPROVED
+printf '%s\n' "$INSTANCE_DETAIL" | jq '.data.status'
 
 AUTHORIZE="$(json -H "Authorization: Bearer $ZT" "$BASE_URL/api/oauth/authorize?response_type=code&client_id=sap-client&redirect_uri=http%3A%2F%2Flocalhost%3A5175%2Fsso%2Fcallback&scope=openid%20profile%20email%20phone%20roles")"
 printf '%s\n' "$AUTHORIZE" | jq .
