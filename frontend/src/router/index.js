@@ -8,6 +8,10 @@ import ModuleView from '../views/ModuleView.vue'
 import Depts from '../views/org/Depts.vue'
 import Positions from '../views/org/Positions.vue'
 import Grades from '../views/org/Grades.vue'
+import Employees from '../views/hr/Employees.vue'
+import EmployeeDetail from '../views/hr/EmployeeDetail.vue'
+import Contracts from '../views/hr/Contracts.vue'
+import Changes from '../views/hr/Changes.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -24,16 +28,16 @@ const routes = [
       { path: 'org/grades', component: Grades, meta: { title: '职级管理' } },
       {
         path: 'hr/employees',
-        component: ModuleView,
-        props: { module: 'employees' },
+        component: Employees,
         meta: { title: '员工档案' },
       },
+      { path: 'hr/employees/:id', component: EmployeeDetail, meta: { title: '员工详情' } },
       {
         path: 'hr/contracts',
-        component: ModuleView,
-        props: { module: 'contracts' },
+        component: Contracts,
         meta: { title: '合同管理' },
       },
+      { path: 'hr/changes', component: Changes, meta: { title: '人事异动' } },
       {
         path: 'attendance',
         component: ModuleView,
