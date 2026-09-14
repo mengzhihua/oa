@@ -30,3 +30,20 @@ export function clearAuth() {
   localStorage.removeItem(USER_KEY)
   localStorage.removeItem(ME_KEY)
 }
+
+function roleCode(role) {
+  return typeof role === 'string' ? role : role?.code
+}
+
+export function roles() {
+  return (auth.me?.roles || auth.user?.roles || []).map(roleCode).filter(Boolean)
+}
+
+export function hasRole(...required) {
+  const current = roles()
+  return required.length === 0 || required.some((role) => current.includes(role))
+}
+
+export function canWrite(...required) {
+  return hasRole(...(required.length ? required : ['ADMIN', 'HR', 'FINANCE', 'MANAGER']))
+}

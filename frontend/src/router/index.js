@@ -5,6 +5,9 @@ import OAuthAuthorize from '../views/OAuthAuthorize.vue'
 import Layout from '../layout/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import ModuleView from '../views/ModuleView.vue'
+import Depts from '../views/org/Depts.vue'
+import Positions from '../views/org/Positions.vue'
+import Grades from '../views/org/Grades.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -15,7 +18,10 @@ const routes = [
     children: [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', component: Dashboard, meta: { title: '工作台' } },
-      { path: 'org', component: ModuleView, props: { module: 'org' }, meta: { title: '组织架构' } },
+      { path: 'org', redirect: '/org/depts' },
+      { path: 'org/depts', component: Depts, meta: { title: '部门管理' } },
+      { path: 'org/positions', component: Positions, meta: { title: '岗位管理' } },
+      { path: 'org/grades', component: Grades, meta: { title: '职级管理' } },
       {
         path: 'hr/employees',
         component: ModuleView,
@@ -49,18 +55,11 @@ const routes = [
   },
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-})
+const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
-  if (to.path === '/login' || to.path === '/oauth/authorize') {
-    return true
-  }
-  if (!auth.token) {
-    return { path: '/login', query: { redirect: to.fullPath } }
-  }
+  if (to.path === '/login' || to.path === '/oauth/authorize') return true
+  if (!auth.token) return { path: '/login', query: { redirect: to.fullPath } }
   return true
 })
 

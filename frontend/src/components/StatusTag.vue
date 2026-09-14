@@ -30,11 +30,44 @@ const labels = {
   DRAFT: '草稿',
   PUBLISHED: '已发布',
   REVOKED: '已撤回',
+  LEAVING: '离职中',
+  PROBATION: '试用期',
+  REGULAR: '正式',
+  IN: '上班',
+  OUT: '下班',
+  TRIP: '出差',
+  REST: '休息',
+  HOLIDAY: '节假日',
+  PATCHED: '补卡',
+  WORKDAY: '工作日',
+  WEEKEND: '周末',
+  ANNUAL: '年假',
+  SICK: '病假',
+  PERSONAL: '事假',
+  MARRIAGE: '婚假',
+  MATERNITY: '产假',
+  BEREAVEMENT: '丧假',
+  COMP: '调休',
+  WORKFLOW: '审批',
+  NOTICE: '公告',
+  SYSTEM: '系统',
+  EARNING: '收入',
+  DEDUCTION: '扣款',
+  COMPANY_COST: '公司成本',
+  ACTIVE: '有效',
+  INACTIVE: '无效',
+  PARTIAL: '部分通过',
 }
 const type = computed(() => {
-  if (['APPROVED', 'PAID', 'CONFIRMED', 'NORMAL', 'PUBLISHED'].includes(props.value)) return 'success'
-  if (['REJECTED', 'ABSENT', 'REVOKED'].includes(props.value)) return 'danger'
-  if (['PENDING', 'RUNNING', 'OPEN', 'CALCULATED', 'LATE', 'EARLY'].includes(props.value)) return 'warning'
+  if (
+    ['APPROVED', 'PAID', 'CONFIRMED', 'NORMAL', 'PUBLISHED', 'REGULAR', 'ACTIVE', 'PATCHED'].includes(
+      props.value,
+    )
+  )
+    return 'success'
+  if (['REJECTED', 'ABSENT', 'REVOKED', 'LEAVING', 'INACTIVE'].includes(props.value)) return 'danger'
+  if (['PENDING', 'RUNNING', 'OPEN', 'CALCULATED', 'LATE', 'EARLY', 'PROBATION'].includes(props.value))
+    return 'warning'
   return 'info'
 })
 </script>
