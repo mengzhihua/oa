@@ -6,14 +6,17 @@ import com.oa.attendance.dto.ClockRequest;
 import com.oa.attendance.dto.LeaveRequest;
 import com.oa.attendance.dto.OvertimeRequest;
 import com.oa.attendance.dto.PatchRequest;
+import com.oa.attendance.dto.ScheduleBatchRequest;
 import com.oa.attendance.dto.TripRequest;
 import com.oa.attendance.entity.AttClockRecord;
 import com.oa.attendance.entity.AttDaily;
 import com.oa.attendance.entity.AttLeaveBalance;
 import com.oa.attendance.entity.AttLeaveRequest;
+import com.oa.attendance.entity.AttMonthlySummary;
 import com.oa.attendance.entity.AttOvertimeRequest;
 import com.oa.attendance.entity.AttPatchRequest;
 import com.oa.attendance.entity.AttShift;
+import com.oa.attendance.entity.AttSchedule;
 import com.oa.attendance.entity.AttTripRequest;
 import com.oa.attendance.vo.ClockTodayView;
 import com.oa.common.BizException;
@@ -53,6 +56,7 @@ public class AttendanceService {
     private final AttTripRequestService tripService;
     private final AttLeaveBalanceService balanceService;
     private final AttMonthlySummaryService monthlyService;
+    private final AttScheduleService scheduleService;
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
 
@@ -65,6 +69,7 @@ public class AttendanceService {
                              AttTripRequestService tripService,
                              AttLeaveBalanceService balanceService,
                              AttMonthlySummaryService monthlyService,
+                             AttScheduleService scheduleService,
                              WorkflowService workflowService,
                              ObjectMapper objectMapper) {
         this.jdbc = jdbc;
@@ -76,6 +81,7 @@ public class AttendanceService {
         this.tripService = tripService;
         this.balanceService = balanceService;
         this.monthlyService = monthlyService;
+        this.scheduleService = scheduleService;
         this.workflowService = workflowService;
         this.objectMapper = objectMapper;
     }
@@ -309,6 +315,81 @@ public class AttendanceService {
         return count;
     }
 
+    @Transactional
+    public int batchSchedule(ScheduleBatchRequest request) {
+        int count = 0;
+        for (Long employeeId : request.getEmployeeIds()) {
+            for (LocalDate date = request.getFrom();
+                 !date.isAfter(request.getTo()); date = date.plusDays(1)) {
+                if ("REST".equals(holidayStatus(date))) {
+                    continue;
+                }
+                AttSchedule schedule = new AttSchedule();
+                schedule.setEmployeeId(employeeId);
+                schedule.setWorkDate(date);
+                schedule.setShiftId(request.getShiftId());
+                AttSchedule existing = scheduleService.lambdaQuery()
+                        .eq(AttSchedule::getEmployeeId, employeeId)
+                        .eq(AttSchedule::getWorkDate, date).one();
+                if (existing == null) {
+                    scheduleService.save(schedule);
+                } else {
+                    schedule.setId(existing.getId());
+                    scheduleService.updateById(schedule);
+                }
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public List<AttSchedule> schedules(Long employeeId, LocalDate from, LocalDate to) {
+        return scheduleService.lambdaQuery()
+                .eq(employeeId != null, AttSchedule::getEmployeeId, employeeId)
+                .between(from != null && to != null, AttSchedule::getWorkDate, from, to)
+                .orderByAsc(AttSchedule::getWorkDate).list();
+    }
+
+    public List<AttDaily> abnormalities(Long deptId, LocalDate from, LocalDate to) {
+        return dailyService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AttDaily>()
+                .in(AttDaily::getStatus, "LATE", "EARLY", "ABSENT")
+                .between(from != null && to != null, AttDaily::getWorkDate, from, to)
+                .inSql(deptId != null, AttDaily::getEmployeeId,
+                        "SELECT id FROM hr_employee WHERE dept_id = " + deptId)
+                .orderByDesc(AttDaily::getWorkDate));
+    }
+
+    public List<AttDaily> departmentDaily(Long deptId, LocalDate date) {
+        return dailyService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AttDaily>()
+                .eq(AttDaily::getWorkDate, date)
+                .inSql(deptId != null, AttDaily::getEmployeeId,
+                        "SELECT id FROM hr_employee WHERE dept_id = " + deptId)
+                .orderByAsc(AttDaily::getEmployeeId));
+    }
+
+    public String monthlyCsv(String yearMonth) {
+        List<AttMonthlySummary> rows = monthlyService.lambdaQuery()
+                .eq(AttMonthlySummary::getYearMonth, yearMonth)
+                .orderByAsc(AttMonthlySummary::getEmployeeId).list();
+        StringBuilder csv = new StringBuilder("\uFEFF员工ID,月份,应出勤天数,实际出勤天数,"
+                + "迟到次数,迟到分钟,早退次数,缺勤天数,请假天数,加班小时,出差天数,状态\n");
+        for (AttMonthlySummary row : rows) {
+            csv.append(row.getEmployeeId()).append(',')
+                    .append(row.getYearMonth()).append(',')
+                    .append(row.getShouldDays()).append(',')
+                    .append(row.getActualDays()).append(',')
+                    .append(row.getLateCount()).append(',')
+                    .append(row.getLateMinutes()).append(',')
+                    .append(row.getEarlyCount()).append(',')
+                    .append(row.getAbsentDays()).append(',')
+                    .append(quote(row.getLeaveDays())).append(',')
+                    .append(row.getOvertimeHours()).append(',')
+                    .append(row.getTripDays()).append(',')
+                    .append(row.getStatus()).append('\n');
+        }
+        return csv.toString();
+    }
+
     @Scheduled(cron = "${oa.attendance.daily-cron:0 5 0 * * *}")
     public void scheduledDaily() {
         if (!scheduleEnabled) {
@@ -321,6 +402,12 @@ public class AttendanceService {
     @Transactional
     public int generateMonthly(String yearMonth, Long deptId) {
         YearMonth month = YearMonth.parse(yearMonth);
+        Integer locked = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM att_monthly_summary WHERE year_month = ? AND status = 'LOCKED'",
+                Integer.class, yearMonth);
+        if (locked != null && locked > 0) {
+            throw new BizException("月度考勤已锁定，不允许重算");
+        }
         LocalDate from = month.atDay(1);
         LocalDate to = month.atEndOfMonth();
         List<Long> employeeIds = employeeIds(deptId);
@@ -378,6 +465,13 @@ public class AttendanceService {
         return employeeId(userId);
     }
 
+    private String quote(String value) {
+        if (value == null) {
+            return "";
+        }
+        return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
     @Transactional
     public void completed(Long instanceId, String status) {
         Map<String, Object> instance = jdbc.queryForMap(
@@ -390,7 +484,7 @@ public class AttendanceService {
             leaveService.updateById(request);
             if ("APPROVED".equals(status) && "ANNUAL".equals(request.getLeaveType())) {
                 jdbc.update("UPDATE att_leave_balance SET used_days = used_days + ? "
-                                + "WHERE employee_id = ? AND year = ? AND leave_type = ?",
+                                + "WHERE employee_id = ? AND `year` = ? AND leave_type = ?",
                         request.getDays(), request.getEmployeeId(), request.getStartTime().getYear(),
                         request.getLeaveType());
             }
@@ -410,6 +504,7 @@ public class AttendanceService {
                 record.setSource("PATCH");
                 record.setRemark(request.getReason());
                 clockService.save(record);
+                calcDaily(request.getEmployeeId(), request.getWorkDate());
             }
         } else if ("BUSINESS_TRIP".equals(type)) {
             AttTripRequest request = tripService.getById(businessId);

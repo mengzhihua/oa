@@ -6,6 +6,7 @@ import com.oa.attendance.dto.ClockRequest;
 import com.oa.attendance.dto.LeaveRequest;
 import com.oa.attendance.dto.OvertimeRequest;
 import com.oa.attendance.dto.PatchRequest;
+import com.oa.attendance.dto.ScheduleBatchRequest;
 import com.oa.attendance.dto.TripRequest;
 import com.oa.attendance.entity.AttDaily;
 import com.oa.attendance.entity.AttLeaveBalance;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import javax.servlet.http.HttpServletResponse;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -131,6 +133,37 @@ public class AttendanceController {
         return R.ok(attendanceService.recalc(deptId, from, to));
     }
 
+    @PostMapping("/schedules/batch")
+    public R<Integer> batchSchedule(@Valid @RequestBody ScheduleBatchRequest request) {
+        return R.ok(attendanceService.batchSchedule(request));
+    }
+
+    @GetMapping("/schedules")
+    public R<List<com.oa.attendance.entity.AttSchedule>> schedules(
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return R.ok(attendanceService.schedules(employeeId, from, to));
+    }
+
+    @GetMapping("/daily/department")
+    public R<List<AttDaily>> departmentDaily(
+            @RequestParam(required = false) Long deptId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return R.ok(attendanceService.departmentDaily(deptId, date));
+    }
+
+    @GetMapping("/daily/abnormal")
+    public R<List<AttDaily>> abnormalities(@RequestParam(required = false) Long deptId,
+                                           @RequestParam(required = false)
+                                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                           LocalDate from,
+                                           @RequestParam(required = false)
+                                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                           LocalDate to) {
+        return R.ok(attendanceService.abnormalities(deptId, from, to));
+    }
+
     @GetMapping("/daily")
     public R<PageResult<AttDaily>> daily(@RequestParam(defaultValue = "1") long page,
                                          @RequestParam(defaultValue = "20") long size,
@@ -179,6 +212,15 @@ public class AttendanceController {
                         .eq(employeeId != null, AttMonthlySummary::getEmployeeId, employeeId)
                         .orderByDesc(AttMonthlySummary::getYearMonth));
         return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
+    }
+
+    @GetMapping("/monthly/{yearMonth}/export")
+    public void exportMonthly(@PathVariable String yearMonth,
+                               HttpServletResponse response) throws Exception {
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=attendance-" + yearMonth + ".csv");
+        response.getWriter().write(attendanceService.monthlyCsv(yearMonth));
     }
 
     private Long employeeId() {
