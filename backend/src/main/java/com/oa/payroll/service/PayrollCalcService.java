@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,17 +76,25 @@ public class PayrollCalcService {
         if (rule == null) {
             throw new BizException("未配置北京社保公积金规则");
         }
+        LocalDate firstDay = LocalDate.of(year, month, 1);
+        LocalDate nextMonth = firstDay.plusMonths(1);
         List<Long> employees = jdbc.query(
-                "SELECT id FROM hr_employee WHERE employment_status NOT IN ('LEFT', 'LEAVING')",
+                "SELECT id FROM hr_employee WHERE "
+                        + "(employment_status NOT IN ('LEFT', 'LEAVING') "
+                        + "OR (employment_status IN ('LEFT', 'LEAVING') "
+                        + "AND leave_date >= ? AND leave_date < ?)) "
+                        + "AND EXISTS (SELECT 1 FROM pay_scheme s "
+                        + "WHERE s.employee_id = hr_employee.id AND s.effective_date <= ?)",
+                new Object[]{firstDay, nextMonth, firstDay},
                 (result, rowNum) -> result.getLong(1));
         jdbc.update("DELETE FROM pay_slip WHERE period_id = ?", periodId);
-        BigDecimal totalGross = BigDecimal.ZERO;
-        BigDecimal totalNet = BigDecimal.ZERO;
+        BigDecimal totalGross = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalNet = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         for (Long employeeId : employees) {
             PaySlip slip = calculateEmployee(period, employeeId, year, month, rule);
             slipService.save(slip);
-            totalGross = totalGross.add(slip.getGross());
-            totalNet = totalNet.add(slip.getNet());
+            totalGross = totalGross.add(slip.getGross()).setScale(2, RoundingMode.HALF_UP);
+            totalNet = totalNet.add(slip.getNet()).setScale(2, RoundingMode.HALF_UP);
         }
         period.setStatus("CALCULATED");
         period.setCalcAt(java.time.LocalDateTime.now());
@@ -106,91 +115,169 @@ public class PayrollCalcService {
         if (scheme == null) {
             throw new BizException("员工未配置薪资方案：" + employeeId);
         }
-        BigDecimal base = money(scheme.getBaseSalary());
-        BigDecimal post = money(scheme.getPostSalary());
-        BigDecimal perf = money(scheme.getPerfSalary());
-        BigDecimal allowance = allowance(scheme.getAllowancesJson());
-        BigDecimal adjustment = jdbc.queryForObject(
+        LocalDate firstDay = LocalDate.of(year, month, 1);
+        LocalDate nextMonth = firstDay.plusMonths(1);
+        LocalDate lastDay = nextMonth.minusDays(1);
+        Map<String, Object> employee = jdbc.queryForMap(
+                "SELECT employment_status, leave_date FROM hr_employee WHERE id = ?", employeeId);
+        BigDecimal base = money2(scheme.getBaseSalary());
+        BigDecimal post = money2(scheme.getPostSalary());
+        BigDecimal perf = money2(scheme.getPerfSalary());
+        BigDecimal allowance = money2(allowance(scheme.getAllowancesJson()));
+        LocalDate leaveDate = toLocalDate(mapValue(employee, "LEAVE_DATE"));
+        String employmentStatus = String.valueOf(mapValue(employee, "EMPLOYMENT_STATUS"));
+        if (leaveDate != null && ("LEFT".equals(employmentStatus) || "LEAVING".equals(employmentStatus))
+                && !leaveDate.isBefore(firstDay) && leaveDate.isBefore(nextMonth)) {
+            int monthWorkingDays = countWorkingDays(firstDay, lastDay);
+            int employedWorkingDays = countWorkingDays(firstDay, leaveDate.isBefore(lastDay) ? leaveDate : lastDay);
+            BigDecimal ratio = monthWorkingDays == 0 ? BigDecimal.ZERO
+                    : BigDecimal.valueOf(employedWorkingDays)
+                    .divide(BigDecimal.valueOf(monthWorkingDays), 2, RoundingMode.HALF_UP);
+            base = base.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+            post = post.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+            perf = perf.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal adjustment = money2(jdbc.queryForObject(
                 "SELECT COALESCE(SUM(amount), 0) FROM pay_adjustment "
                         + "WHERE period_id = ? AND employee_id = ?",
-                BigDecimal.class, period.getId(), employeeId);
-        BigDecimal overtimeHours = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(hours), 0) FROM att_overtime_request "
-                        + "WHERE employee_id = ? AND status = 'APPROVED' "
-                        + "AND start_time >= ? AND start_time < ?",
-                BigDecimal.class, employeeId, LocalDate.of(year, month, 1).atStartOfDay(),
-                LocalDate.of(year, month, 1).plusMonths(1).atStartOfDay());
+                BigDecimal.class, period.getId(), employeeId));
         BigDecimal hourly = base.add(post).divide(WORK_DAYS, 8, RoundingMode.HALF_UP)
                 .divide(BigDecimal.valueOf(8), 8, RoundingMode.HALF_UP);
-        BigDecimal overtime = money(overtimeHours).multiply(hourly)
-                .multiply(BigDecimal.valueOf(1.5));
+        BigDecimal overtime = overtimePay(employeeId, firstDay, nextMonth, hourly);
         Integer lateCount = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM att_daily WHERE employee_id = ? "
                         + "AND work_date >= ? AND work_date < ? AND late_minutes > 0",
-                Integer.class, employeeId, LocalDate.of(year, month, 1),
-                LocalDate.of(year, month, 1).plusMonths(1));
-        BigDecimal absentDays = jdbc.queryForObject(
+                Integer.class, employeeId, firstDay, nextMonth);
+        BigDecimal absentDays = money2(jdbc.queryForObject(
                 "SELECT COALESCE(SUM(absent_days), 0) FROM att_monthly_summary "
                         + "WHERE employee_id = ? AND year_month = ?",
-                BigDecimal.class, employeeId, period.getYearMonth());
-        BigDecimal leaveDays = jdbc.queryForObject(
+                BigDecimal.class, employeeId, period.getYearMonth()));
+        BigDecimal personalLeaveDays = money2(jdbc.queryForObject(
                 "SELECT COALESCE(SUM(days), 0) FROM att_leave_request "
                         + "WHERE employee_id = ? AND status = 'APPROVED' "
                         + "AND start_time >= ? AND start_time < ? AND leave_type = 'PERSONAL'",
-                BigDecimal.class, employeeId, LocalDate.of(year, month, 1).atStartOfDay(),
-                LocalDate.of(year, month, 1).plusMonths(1).atStartOfDay());
-        BigDecimal lateDed = BigDecimal.valueOf(lateCount == null ? 0 : lateCount * 20L);
-        BigDecimal absentDed = money(absentDays).multiply(base.add(post))
-                .divide(WORK_DAYS, 8, RoundingMode.HALF_UP);
-        BigDecimal leaveDed = money(leaveDays).multiply(base.add(post))
-                .divide(WORK_DAYS, 8, RoundingMode.HALF_UP);
-        BigDecimal gross = base.add(post).add(perf).add(allowance).add(overtime).add(adjustment);
+                BigDecimal.class, employeeId, firstDay.atStartOfDay(), nextMonth.atStartOfDay()));
+        BigDecimal sickLeaveDays = money2(jdbc.queryForObject(
+                "SELECT COALESCE(SUM(days), 0) FROM att_leave_request "
+                        + "WHERE employee_id = ? AND status = 'APPROVED' "
+                        + "AND start_time >= ? AND start_time < ? AND leave_type = 'SICK'",
+                BigDecimal.class, employeeId, firstDay.atStartOfDay(), nextMonth.atStartOfDay()));
+        BigDecimal daily = base.add(post).divide(WORK_DAYS, 8, RoundingMode.HALF_UP);
+        BigDecimal lateDed = money2(BigDecimal.valueOf(lateCount == null ? 0 : lateCount * 20L));
+        BigDecimal absentDed = money2(absentDays.multiply(daily));
+        BigDecimal leaveDed = money2(personalLeaveDays.multiply(daily)
+                .add(sickLeaveDays.multiply(daily).multiply(new BigDecimal("0.40"))));
+        BigDecimal gross = money2(base.add(post).add(perf).add(allowance).add(overtime).add(adjustment));
         BigDecimal siBase = clamp(money(scheme.getSiBase()), rule.getSiBaseMin(), rule.getSiBaseMax());
         BigDecimal hfBase = clamp(money(scheme.getHfBase()), rule.getHfBaseMin(), rule.getHfBaseMax());
-        BigDecimal siPersonal = siBase.multiply(rule.getPensionP().add(rule.getMedicalP())
-                        .add(rule.getUnemploymentP())).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal hfPersonal = hfBase.multiply(rule.getHfP()).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal siCompany = siBase.multiply(rule.getPensionC().add(rule.getMedicalC())
+        BigDecimal siPersonal = money2(siBase.multiply(rule.getPensionP().add(rule.getMedicalP())
+                        .add(rule.getUnemploymentP())));
+        BigDecimal hfPersonal = money2(hfBase.multiply(rule.getHfP()));
+        BigDecimal siCompany = money2(siBase.multiply(rule.getPensionC().add(rule.getMedicalC())
                         .add(rule.getUnemploymentC()).add(rule.getInjuryC())
-                        .add(rule.getMaternityC())).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal hfCompany = hfBase.multiply(rule.getHfC()).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal taxable = gross.subtract(siPersonal).subtract(hfPersonal)
-                .subtract(lateDed).subtract(absentDed).subtract(leaveDed).max(BigDecimal.ZERO);
-        BigDecimal previousTaxable = jdbc.queryForObject(
+                        .add(rule.getMaternityC())));
+        BigDecimal hfCompany = money2(hfBase.multiply(rule.getHfC()));
+        BigDecimal taxable = money2(gross.subtract(siPersonal).subtract(hfPersonal)
+                .subtract(lateDed).subtract(absentDed).subtract(leaveDed).max(BigDecimal.ZERO));
+        BigDecimal previousTaxable = money(jdbc.queryForObject(
                 "SELECT COALESCE(SUM(taxable_income), 0) FROM pay_slip s JOIN pay_period p "
                         + "ON p.id = s.period_id WHERE s.employee_id = ? "
                         + "AND p.year_month LIKE ? AND p.status = 'PAID'",
-                BigDecimal.class, employeeId, year + "-%");
-        BigDecimal previousTax = jdbc.queryForObject(
+                BigDecimal.class, employeeId, year + "-%"));
+        BigDecimal previousTax = money(jdbc.queryForObject(
                 "SELECT COALESCE(SUM(tax), 0) FROM pay_slip s JOIN pay_period p "
                         + "ON p.id = s.period_id WHERE s.employee_id = ? "
                         + "AND p.year_month LIKE ? AND p.status = 'PAID'",
-                BigDecimal.class, employeeId, year + "-%");
-        BigDecimal cumulativeTaxable = money(previousTaxable).add(taxable)
-                .subtract(BigDecimal.valueOf(5000L * month)).max(BigDecimal.ZERO);
-        BigDecimal cumulativeTax = taxFor(cumulativeTaxable).subtract(money(previousTax))
-                .max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal.class, employeeId, year + "-%"));
+        BigDecimal cumulativeTaxable = money2(previousTaxable.add(taxable)
+                .subtract(BigDecimal.valueOf(5000L * month)).max(BigDecimal.ZERO));
+        BigDecimal cumulativeTax = money2(taxFor(cumulativeTaxable));
+        BigDecimal tax = money2(cumulativeTax.subtract(previousTax).max(BigDecimal.ZERO));
         PaySlip slip = new PaySlip();
         slip.setPeriodId(period.getId());
         slip.setEmployeeId(employeeId);
         slip.setDeptId(jdbc.queryForObject("SELECT dept_id FROM hr_employee WHERE id = ?",
                 Long.class, employeeId));
         slip.setItemsJson(items(base, post, perf, allowance, overtime, adjustment,
-                lateDed, absentDed, leaveDed));
-        slip.setGross(gross.setScale(2, RoundingMode.HALF_UP));
-        slip.setTaxableIncome(taxable.setScale(2, RoundingMode.HALF_UP));
-        slip.setCumulativeTaxable(cumulativeTaxable.setScale(2, RoundingMode.HALF_UP));
-        slip.setCumulativeTax(taxFor(cumulativeTaxable).setScale(2, RoundingMode.HALF_UP));
-        slip.setTax(cumulativeTax);
+                lateDed, absentDed, leaveDed, siPersonal, hfPersonal, tax));
+        slip.setGross(gross);
+        slip.setTaxableIncome(taxable);
+        slip.setCumulativeTaxable(cumulativeTaxable);
+        slip.setCumulativeTax(cumulativeTax);
+        slip.setTax(tax);
         slip.setSiPersonal(siPersonal);
         slip.setHfPersonal(hfPersonal);
         slip.setSiCompany(siCompany);
         slip.setHfCompany(hfCompany);
-        slip.setNet(gross.subtract(lateDed).subtract(absentDed).subtract(leaveDed)
-                .subtract(siPersonal).subtract(hfPersonal).subtract(cumulativeTax)
-                .setScale(2, RoundingMode.HALF_UP));
+        slip.setNet(money2(gross.subtract(lateDed).subtract(absentDed).subtract(leaveDed)
+                .subtract(siPersonal).subtract(hfPersonal).subtract(tax)));
         slip.setStatus("DRAFT");
         return slip;
+    }
+
+    private BigDecimal overtimePay(Long employeeId, LocalDate firstDay,
+                                   LocalDate nextMonth, BigDecimal hourly) {
+        Map<String, BigDecimal> multipliers = new LinkedHashMap<>();
+        multipliers.put("WORKDAY", new BigDecimal("1.5"));
+        multipliers.put("WEEKEND", new BigDecimal("2.0"));
+        multipliers.put("HOLIDAY", new BigDecimal("3.0"));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : multipliers.entrySet()) {
+            BigDecimal hours = jdbc.queryForObject(
+                    "SELECT COALESCE(SUM(hours), 0) FROM att_overtime_request "
+                            + "WHERE employee_id = ? AND status = 'APPROVED' AND type = ? "
+                            + "AND start_time >= ? AND start_time < ?",
+                    BigDecimal.class, employeeId, entry.getKey(),
+                    firstDay.atStartOfDay(), nextMonth.atStartOfDay());
+            total = total.add(money(hours).multiply(hourly).multiply(entry.getValue()));
+        }
+        return money2(total);
+    }
+
+    private int countWorkingDays(LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            return 0;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT holiday_date, type FROM att_holiday WHERE holiday_date >= ? AND holiday_date <= ?",
+                from, to);
+        Map<LocalDate, String> holidays = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            holidays.put(toLocalDate(mapValue(row, "HOLIDAY_DATE")),
+                    String.valueOf(mapValue(row, "TYPE")));
+        }
+        int days = 0;
+        LocalDate current = from;
+        while (!current.isAfter(to)) {
+            String type = holidays.get(current);
+            if ("WORKDAY".equals(type) || (type == null
+                    && current.getDayOfWeek().getValue() <= 5)) {
+                days++;
+            }
+            current = current.plusDays(1);
+        }
+        return days;
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        return LocalDate.parse(String.valueOf(value));
+    }
+
+    private Object mapValue(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        if (value == null) {
+            value = row.get(key.toLowerCase());
+        }
+        return value;
     }
 
     public void approve(Long periodId, Long userId) {
@@ -253,8 +340,8 @@ public class PayrollCalcService {
                 "SELECT rate, quick_deduction FROM pay_tax_bracket "
                         + "WHERE lower_bound <= ? AND (upper_bound IS NULL OR upper_bound >= ?)"
                         + " ORDER BY level_no DESC LIMIT 1", taxable, taxable);
-        return taxable.multiply(new BigDecimal(String.valueOf(row.get("RATE"))))
-                .subtract(new BigDecimal(String.valueOf(row.get("QUICK_DEDUCTION"))));
+        return taxable.multiply(new BigDecimal(String.valueOf(mapValue(row, "RATE"))))
+                .subtract(new BigDecimal(String.valueOf(mapValue(row, "QUICK_DEDUCTION"))));
     }
 
     private BigDecimal allowance(String json) {
@@ -277,7 +364,8 @@ public class PayrollCalcService {
 
     private String items(BigDecimal base, BigDecimal post, BigDecimal perf,
                          BigDecimal allowance, BigDecimal overtime, BigDecimal adjustment,
-                         BigDecimal late, BigDecimal absent, BigDecimal leave) {
+                         BigDecimal late, BigDecimal absent, BigDecimal leave,
+                         BigDecimal siPersonal, BigDecimal hfPersonal, BigDecimal tax) {
         Map<String, BigDecimal> values = new LinkedHashMap<>();
         values.put("BASE", base);
         values.put("POST", post);
@@ -288,6 +376,9 @@ public class PayrollCalcService {
         values.put("LATE_DED", late.negate());
         values.put("ABSENT_DED", absent.negate());
         values.put("LEAVE_DED", leave.negate());
+        values.put("SI_PERSONAL", siPersonal.negate());
+        values.put("HF_PERSONAL", hfPersonal.negate());
+        values.put("TAX", tax.negate());
         try {
             return objectMapper.writeValueAsString(values);
         } catch (Exception exception) {
@@ -301,5 +392,9 @@ public class PayrollCalcService {
 
     private BigDecimal money(Object value) {
         return value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
+    }
+
+    private BigDecimal money2(Object value) {
+        return money(value).setScale(2, RoundingMode.HALF_UP);
     }
 }
