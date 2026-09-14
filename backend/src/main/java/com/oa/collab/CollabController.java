@@ -15,10 +15,14 @@ import com.oa.collab.service.CollabService;
 import com.oa.collab.service.OaMeetingRoomService;
 import com.oa.collab.service.OaMeetingBookingService;
 import com.oa.collab.service.OaExpenseService;
+import com.oa.collab.service.OaNoticeService;
 import com.oa.collab.service.OaScheduleService;
 import com.oa.collab.vo.ContactView;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.oa.common.R;
+import com.oa.common.PageResult;
 import com.oa.system.auth.CurrentUser;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,19 +48,22 @@ public class CollabController {
     private final OaScheduleService scheduleService;
     private final JdbcTemplate jdbc;
     private final OaExpenseService expenseService;
+    private final OaNoticeService noticeService;
 
     public CollabController(CollabService collabService,
                             OaMeetingRoomService roomService,
                             OaMeetingBookingService bookingService,
                             OaScheduleService scheduleService,
                             JdbcTemplate jdbc,
-                            OaExpenseService expenseService) {
+                            OaExpenseService expenseService,
+                            OaNoticeService noticeService) {
         this.collabService = collabService;
         this.roomService = roomService;
         this.bookingService = bookingService;
         this.scheduleService = scheduleService;
         this.jdbc = jdbc;
         this.expenseService = expenseService;
+        this.noticeService = noticeService;
     }
 
     @PostMapping("/notices")
@@ -90,6 +97,15 @@ public class CollabController {
     @GetMapping("/notices/mine")
     public R<List<OaNotice>> mineNotices() {
         return R.ok(collabService.mineNotices(CurrentUser.id()));
+    }
+
+    @GetMapping("/notices")
+    public R<PageResult<OaNotice>> notices(@RequestParam(defaultValue = "1") long page,
+                                           @RequestParam(defaultValue = "20") long size) {
+        Page<OaNotice> result = new Page<>(page, size);
+        result = noticeService.page(result, new LambdaQueryWrapper<OaNotice>()
+                .orderByDesc(OaNotice::getId));
+        return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
     }
 
     @PostMapping("/notices/{id}/read")

@@ -160,6 +160,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { attendanceApi } from '../../api/attendance'
+import { workflowApi } from '../../api/workflow'
 import ApprovalTimeline from '../../components/ApprovalTimeline.vue'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
@@ -213,8 +214,16 @@ async function cancel(type, row) {
   ElMessage.success('已撤回')
   await load()
 }
-function showTimeline(row) {
-  timeline.value = row.tasks || row.approvals || []
+async function showTimeline(row) {
+  const instanceId = row.wfInstanceId || row.instanceId
+  if (!instanceId) {
+    timeline.value = []
+    timelineVisible.value = true
+    ElMessage.warning('该申请暂无审批流程')
+    return
+  }
+  const detail = await workflowApi.instance(instanceId)
+  timeline.value = detail.tasks || []
   timelineVisible.value = true
 }
 onMounted(load)

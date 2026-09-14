@@ -32,6 +32,7 @@ public class AccessPolicy {
             Rule.prefix("/api/attendance/daily", "GET", "HR", "ADMIN", "MANAGER"),
             Rule.prefix("/api/attendance/daily", "*", "HR", "ADMIN"),
             Rule.suffix("/api/collab/expenses/", "/pay", "*", "FINANCE", "ADMIN"),
+            Rule.path("/api/notices", "GET", "ADMIN", "HR"),
             Rule.prefix("/api/oauth/clients", "*", "ADMIN"),
             Rule.prefix("/api/system/oplogs", "*", "ADMIN"),
             Rule.prefix("/api/system/users", "*", "ADMIN", "HR"),
