@@ -127,7 +127,11 @@ const route = useRoute()
 const router = useRouter()
 const search = ref('')
 const unread = ref(0)
-const isAdmin = computed(() => (auth.me?.roles || []).some((role) => ['ADMIN', 'HR'].includes(role.code)))
+const isAdmin = computed(() =>
+  (auth.me?.roles || []).some((role) =>
+    ['ADMIN', 'HR'].includes(typeof role === 'string' ? role : role.code),
+  ),
+)
 
 async function searchContacts(query, callback) {
   if (!query) {

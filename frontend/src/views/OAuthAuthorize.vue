@@ -67,17 +67,18 @@ async function agree() {
   try {
     const response = await axios.get('/api/oauth/authorize', {
       params: { ...query, oa_token: auth.token },
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
       validateStatus: () => true,
     })
     if (response.status === 401) {
       router.replace({ path: '/login', query: { redirect: route.fullPath } })
       return
     }
-    if (response.data.code !== 0) {
-      ElMessage.error(response.data.msg || '授权失败')
+    if (!response.data.redirectUrl) {
+      ElMessage.error(response.data.msg || response.data.error_description || '授权失败')
       return
     }
-    window.location.href = response.data.data.redirectUrl
+    window.location.href = response.data.redirectUrl
   } finally {
     loading.value = false
   }
