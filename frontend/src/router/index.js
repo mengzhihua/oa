@@ -33,6 +33,18 @@ import Periods from '../views/payroll/Periods.vue'
 import Slips from '../views/payroll/Slips.vue'
 import CostReport from '../views/payroll/CostReport.vue'
 import MySlips from '../views/payroll/MySlips.vue'
+import Notices from '../views/collab/Notices.vue'
+import CollabSchedules from '../views/collab/Schedules.vue'
+import Meetings from '../views/collab/Meetings.vue'
+import Messages from '../views/collab/Messages.vue'
+import Contacts from '../views/collab/Contacts.vue'
+import Expenses from '../views/collab/Expenses.vue'
+import Users from '../views/system/Users.vue'
+import Roles from '../views/system/Roles.vue'
+import Menus from '../views/system/Menus.vue'
+import Dicts from '../views/system/Dicts.vue'
+import OAuthClients from '../views/system/OAuthClients.vue'
+import OpLogs from '../views/system/OpLogs.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -83,9 +95,21 @@ const routes = [
       { path: 'payroll/slips', component: Slips, meta: { title: '工资单' } },
       { path: 'payroll/cost', component: CostReport, meta: { title: '人力成本' } },
       { path: 'payroll/mine', component: MySlips, meta: { title: '我的工资条' } },
-      { path: 'collab', component: ModuleView, props: { module: 'collab' }, meta: { title: '协同办公' } },
-      { path: 'contacts', component: ModuleView, props: { module: 'contacts' }, meta: { title: '通讯录' } },
-      { path: 'system', component: ModuleView, props: { module: 'system' }, meta: { title: '系统管理' } },
+      { path: 'collab', redirect: '/collab/notices' },
+      { path: 'collab/notices', component: Notices, meta: { title: '公告管理' } },
+      { path: 'collab/schedules', component: CollabSchedules, meta: { title: '我的日程' } },
+      { path: 'collab/meetings', component: Meetings, meta: { title: '会议室' } },
+      { path: 'collab/messages', component: Messages, meta: { title: '消息中心' } },
+      { path: 'collab/contacts', component: Contacts, meta: { title: '通讯录' } },
+      { path: 'collab/expenses', component: Expenses, meta: { title: '报销管理' } },
+      { path: 'contacts', redirect: '/collab/contacts' },
+      { path: 'system', redirect: '/system/users' },
+      { path: 'system/users', component: Users, meta: { title: '用户管理' } },
+      { path: 'system/roles', component: Roles, meta: { title: '角色管理' } },
+      { path: 'system/menus', component: Menus, meta: { title: '菜单管理' } },
+      { path: 'system/dicts', component: Dicts, meta: { title: '字典管理' } },
+      { path: 'system/oauth-clients', component: OAuthClients, meta: { title: 'OAuth 客户端' } },
+      { path: 'system/op-logs', component: OpLogs, meta: { title: '操作日志' } },
     ],
   },
 ]
