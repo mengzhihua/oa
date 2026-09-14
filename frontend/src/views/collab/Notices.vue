@@ -20,10 +20,9 @@
         /><el-table-column
           prop="pinned"
           label="置顶"
-        /><el-table-column
-          prop="publishedAt"
-          label="发布时间"
-        /><el-table-column label="状态"
+        /><el-table-column label="发布时间"
+          ><template #default="{ row }">{{ fmtDateTime(row.publishedAt) }}</template></el-table-column
+        ><el-table-column label="状态"
           ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
         ><el-table-column label="操作"
           ><template #default="{ row }"
@@ -91,6 +90,7 @@ import { collabApi } from '../../api/collab'
 import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtDateTime } from '../../utils/format'
 const rows = ref([])
 const visible = ref(false)
 const detailVisible = ref(false)

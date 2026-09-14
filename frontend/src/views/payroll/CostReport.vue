@@ -19,21 +19,26 @@
         show-summary
         ><el-table-column
           prop="deptId"
-          label="部门" /><el-table-column
+          label="部门"
+        /><el-table-column
           prop="yearMonth"
-          label="月份" /><el-table-column
-          prop="gross"
-          label="应发" /><el-table-column
-          prop="companyInsurance"
-          label="公司社保公积金" /><el-table-column
-          prop="totalCost"
-          label="人力成本" /></el-table></el-card
-  ></PageShell>
+          label="月份"
+        /><el-table-column label="应发"
+          ><template #default="{ row }">{{ fmtMoney(row.gross) }}</template></el-table-column
+        ><el-table-column label="公司社保公积金"
+          ><template #default="{ row }">{{ fmtMoney(row.companyInsurance) }}</template></el-table-column
+        ><el-table-column label="人力成本"
+          ><template #default="{ row }">{{ fmtMoney(row.totalCost) }}</template></el-table-column
+        ></el-table
+      ></el-card
+    ></PageShell
+  >
 </template>
 <script setup>
 import { onMounted, ref } from 'vue'
 import { payrollApi } from '../../api/payroll'
 import PageShell from '../../components/PageShell.vue'
+import { fmtMoney } from '../../utils/format'
 const year = ref(String(new Date().getFullYear()))
 const rows = ref([])
 async function load() {

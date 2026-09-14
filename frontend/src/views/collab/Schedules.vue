@@ -21,7 +21,7 @@
             :key="item.id"
             class="schedule-card"
             ><b>{{ item.title }}</b>
-            <p>{{ item.startTime }}</p>
+            <p>{{ fmtDateTime(item.startTime) }}</p>
             <span>{{ item.location }}</span></el-card
           >
         </div>
@@ -64,6 +64,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { collabApi } from '../../api/collab'
 import PageShell from '../../components/PageShell.vue'
+import { fmtDateTime } from '../../utils/format'
 const visible = ref(false)
 const rows = ref([])
 const form = reactive({ title: '', startTime: '', endTime: '', location: '', remindMinutes: 10 })

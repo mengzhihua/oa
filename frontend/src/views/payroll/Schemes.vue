@@ -20,9 +20,9 @@
       ><el-table :data="rows"
         ><el-table-column
           prop="employeeId"
-          label="员工" /><el-table-column
-          prop="effectiveDate"
-          label="生效日期" /><el-table-column
+          label="员工" /><el-table-column label="生效日期"
+          ><template #default="{ row }">{{ fmtDate(row.effectiveDate) }}</template></el-table-column
+        ><el-table-column
           prop="baseSalary"
           label="基本工资" /><el-table-column
           prop="postSalary"
@@ -79,6 +79,7 @@ import { payrollApi } from '../../api/payroll'
 import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtDate } from '../../utils/format'
 const rows = ref([])
 const employeeId = ref()
 const visible = ref(false)

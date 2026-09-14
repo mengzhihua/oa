@@ -13,7 +13,7 @@
           ><StatusTag :value="employee.employmentStatus" /></el-descriptions-item
         ><el-descriptions-item label="手机号">{{ employee.mobile }}</el-descriptions-item
         ><el-descriptions-item label="邮箱">{{ employee.email }}</el-descriptions-item
-        ><el-descriptions-item label="入职日期">{{ employee.hireDate }}</el-descriptions-item
+        ><el-descriptions-item label="入职日期">{{ fmtDate(employee.hireDate) }}</el-descriptions-item
         ><el-descriptions-item label="身份证号">{{ employee.idCard }}</el-descriptions-item
         ><el-descriptions-item label="学历">{{ employee.education }}</el-descriptions-item
         ><el-descriptions-item label="地址">{{ employee.address }}</el-descriptions-item></el-descriptions
@@ -27,20 +27,20 @@
               prop="contractNo"
               label="合同编号" /><el-table-column
               prop="type"
-              label="类型" /><el-table-column
-              prop="startDate"
-              label="开始日期" /><el-table-column
-              prop="endDate"
-              label="结束日期" /><el-table-column label="状态"
+              label="类型" /><el-table-column label="开始日期"
+              ><template #default="{ row }">{{ fmtDate(row.startDate) }}</template></el-table-column
+            ><el-table-column label="结束日期"
+              ><template #default="{ row }">{{ fmtDate(row.endDate) }}</template></el-table-column
+            ><el-table-column label="状态"
               ><template #default="{ row }"
                 ><StatusTag :value="row.status" /></template></el-table-column></el-table></el-tab-pane
         ><el-tab-pane label="异动记录"
           ><el-table :data="changes"
             ><el-table-column
               prop="changeType"
-              label="异动类型" /><el-table-column
-              prop="effectiveDate"
-              label="生效日期" /><el-table-column
+              label="异动类型" /><el-table-column label="生效日期"
+              ><template #default="{ row }">{{ fmtDate(row.effectiveDate) }}</template></el-table-column
+            ><el-table-column
               prop="reason"
               label="原因" /><el-table-column label="详情"
               ><template #default="{ row }"
@@ -60,6 +60,7 @@ import { hrApi } from '../../api/hr'
 import JsonDrawer from '../../components/JsonDrawer.vue'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtDate } from '../../utils/format'
 const route = useRoute()
 const employee = ref({})
 const contracts = ref([])

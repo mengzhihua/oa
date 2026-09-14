@@ -3,7 +3,7 @@
     <el-timeline-item
       v-for="task in tasks || []"
       :key="task.id"
-      :timestamp="task.handledAt || '待处理'"
+      :timestamp="task.handledAt ? fmtDateTime(task.handledAt) : '待处理'"
     >
       <strong>{{ task.nodeName || `第 ${task.nodeSeq || '-'} 节点` }}</strong>
       <div>审批人：{{ task.approverName || task.assigneeName || '待指定' }}</div>
@@ -15,5 +15,6 @@
 
 <script setup>
 import StatusTag from './StatusTag.vue'
+import { fmtDateTime } from '../utils/format'
 defineProps({ tasks: Array })
 </script>

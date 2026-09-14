@@ -3,10 +3,9 @@
     ><el-table-column
       prop="title"
       label="标题"
-    /><el-table-column
-      prop="total"
-      label="金额"
-    /><el-table-column label="状态"
+    /><el-table-column label="金额"
+      ><template #default="{ row }">{{ fmtMoney(row.total) }}</template></el-table-column
+    ><el-table-column label="状态"
       ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
     ><el-table-column label="操作"
       ><template #default="{ row }"
@@ -23,6 +22,7 @@
 </template>
 <script setup>
 import StatusTag from './StatusTag.vue'
+import { fmtMoney } from '../utils/format'
 defineProps({ rows: Array })
 defineEmits(['pay'])
 </script>

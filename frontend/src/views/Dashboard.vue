@@ -39,10 +39,9 @@
           :show-header="false"
         >
           <el-table-column prop="title" />
-          <el-table-column
-            prop="publishedAt"
-            width="180"
-          />
+          <el-table-column width="180">
+            <template #default="{ row }">{{ fmtDateTime(row.publishedAt) }}</template>
+          </el-table-column>
           <el-table-column width="90"
             ><template #default="{ row }"><StatusTag :value="row.status" /></template
           ></el-table-column>
@@ -99,7 +98,7 @@
           class="finance-card"
         >
           <span>当前工资期间</span><strong>{{ view.payrollStatus || '暂无' }}</strong>
-          <span>本月人力成本</span><strong>¥ {{ view.payrollCost || '0.00' }}</strong>
+          <span>本月人力成本</span><strong>¥ {{ fmtMoney(view.payrollCost) }}</strong>
         </div>
         <div
           v-else
@@ -122,6 +121,7 @@ import { attendanceApi, dashboardApi } from '../api'
 import { hasRole } from '../auth'
 import PageShell from '../components/PageShell.vue'
 import StatusTag from '../components/StatusTag.vue'
+import { fmtDateTime, fmtMoney } from '../utils/format'
 
 const router = useRouter()
 const view = ref({})

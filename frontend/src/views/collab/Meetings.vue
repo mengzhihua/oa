@@ -27,13 +27,11 @@
         /><el-table-column
           prop="title"
           label="主题"
-        /><el-table-column
-          prop="startTime"
-          label="开始"
-        /><el-table-column
-          prop="endTime"
-          label="结束"
-        /><el-table-column
+        /><el-table-column label="开始"
+          ><template #default="{ row }">{{ fmtDateTime(row.startTime) }}</template></el-table-column
+        ><el-table-column label="结束"
+          ><template #default="{ row }">{{ fmtDateTime(row.endTime) }}</template></el-table-column
+        ><el-table-column
           prop="status"
           label="状态"
           ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
@@ -93,6 +91,7 @@ import { ElMessage } from 'element-plus'
 import { collabApi } from '../../api/collab'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtDateTime } from '../../utils/format'
 const rooms = ref([])
 const bookings = ref([])
 const visible = ref(false)

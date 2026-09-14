@@ -69,10 +69,10 @@
           prop="mobile"
           label="手机号"
         /><el-table-column
-          prop="hireDate"
           label="入职日期"
           width="120"
-        /><el-table-column
+          ><template #default="{ row }">{{ fmtDate(row.hireDate) }}</template></el-table-column
+        ><el-table-column
           label="状态"
           width="100"
           ><template #default="{ row }"
@@ -216,6 +216,7 @@ import DeptTreeSelect from '../../components/DeptTreeSelect.vue'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import TablePager from '../../components/TablePager.vue'
+import { fmtDate } from '../../utils/format'
 const router = useRouter()
 const rows = ref([])
 const total = ref(0)

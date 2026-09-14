@@ -15,22 +15,17 @@
         ><el-table-column
           prop="employeeId"
           label="员工"
-        /><el-table-column
-          prop="gross"
-          label="应发"
-        /><el-table-column
-          prop="siPersonal"
-          label="社保"
-        /><el-table-column
-          prop="hfPersonal"
-          label="公积金"
-        /><el-table-column
-          prop="tax"
-          label="个税"
-        /><el-table-column
-          prop="net"
-          label="实发"
-        /><el-table-column label="状态"
+        /><el-table-column label="应发"
+          ><template #default="{ row }">{{ fmtMoney(row.gross) }}</template></el-table-column
+        ><el-table-column label="社保"
+          ><template #default="{ row }">{{ fmtMoney(row.siPersonal) }}</template></el-table-column
+        ><el-table-column label="公积金"
+          ><template #default="{ row }">{{ fmtMoney(row.hfPersonal) }}</template></el-table-column
+        ><el-table-column label="个税"
+          ><template #default="{ row }">{{ fmtMoney(row.tax) }}</template></el-table-column
+        ><el-table-column label="实发"
+          ><template #default="{ row }">{{ fmtMoney(row.net) }}</template></el-table-column
+        ><el-table-column label="状态"
           ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
         ><el-table-column label="操作"
           ><template #default="{ row }"
@@ -53,11 +48,13 @@
       ><el-descriptions
         :column="1"
         border
-        ><el-descriptions-item label="应发">{{ current.gross }}</el-descriptions-item
-        ><el-descriptions-item label="社保">{{ current.siPersonal }}</el-descriptions-item
-        ><el-descriptions-item label="公积金">{{ current.hfPersonal }}</el-descriptions-item
-        ><el-descriptions-item label="个税">{{ current.tax }}</el-descriptions-item
-        ><el-descriptions-item label="实发">{{ current.net }}</el-descriptions-item></el-descriptions
+        ><el-descriptions-item label="应发">{{ fmtMoney(current.gross) }}</el-descriptions-item
+        ><el-descriptions-item label="社保">{{ fmtMoney(current.siPersonal) }}</el-descriptions-item
+        ><el-descriptions-item label="公积金">{{ fmtMoney(current.hfPersonal) }}</el-descriptions-item
+        ><el-descriptions-item label="个税">{{ fmtMoney(current.tax) }}</el-descriptions-item
+        ><el-descriptions-item label="实发">{{
+          fmtMoney(current.net)
+        }}</el-descriptions-item></el-descriptions
       >
       <pre>{{ format(current.itemsJson) }}</pre></el-drawer
     ><el-dialog
@@ -90,6 +87,7 @@ import { payrollApi } from '../../api/payroll'
 import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtMoney } from '../../utils/format'
 const rows = ref([])
 const query = reactive({ page: 1, size: 20, periodId: undefined, deptId: undefined })
 const current = ref({})

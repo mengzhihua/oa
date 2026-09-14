@@ -24,9 +24,9 @@
       ><el-table :data="rows"
         ><el-table-column
           prop="employeeId"
-          label="员工" /><el-table-column
-          prop="workDate"
-          label="日期" /><el-table-column
+          label="员工" /><el-table-column label="日期"
+          ><template #default="{ row }">{{ fmtDate(row.workDate) }}</template></el-table-column
+        ><el-table-column
           prop="shiftId"
           label="班次" /></el-table></el-card
     ><el-dialog
@@ -60,6 +60,7 @@ import { ElMessage } from 'element-plus'
 import { attendanceApi } from '../../api/attendance'
 import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
+import { fmtDate } from '../../utils/format'
 const rows = ref([])
 const range = ref([])
 const batchRange = ref([])

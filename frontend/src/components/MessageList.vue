@@ -14,10 +14,12 @@
       ><strong>{{ row.title }}</strong>
     </div>
     <p>{{ row.content }}</p>
-    <small>{{ row.createdAt || row.sentAt }}</small>
+    <small>{{ fmtDateTime(row.createdAt || row.sentAt) }}</small>
   </div>
 </template>
 <script setup>
+import { fmtDateTime } from '../utils/format'
+
 defineProps({ rows: Array })
 defineEmits(['read'])
 </script>

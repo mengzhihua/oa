@@ -50,7 +50,7 @@
           </div>
           <el-button @click="items.push({ name: '', amount: 0 })">新增明细</el-button></el-form-item
         ><el-form-item label="合计"
-          ><strong>¥ {{ total.toFixed(2) }}</strong></el-form-item
+          ><strong>¥ {{ fmtMoney(total) }}</strong></el-form-item
         ></el-form
       ><template #footer
         ><el-button @click="visible = false">取消</el-button
@@ -70,6 +70,7 @@ import { collabApi } from '../../api/collab'
 import { canWrite } from '../../auth'
 import ExpenseTable from '../../components/ExpenseTable.vue'
 import PageShell from '../../components/PageShell.vue'
+import { fmtMoney } from '../../utils/format'
 const rows = ref([])
 const visible = ref(false)
 const tab = ref('mine')

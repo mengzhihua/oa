@@ -27,12 +27,11 @@
         /><el-table-column
           prop="type"
           label="类型"
-        /><el-table-column
-          prop="startDate"
-          label="开始日期"
-        /><el-table-column label="结束日期"
+        /><el-table-column label="开始日期"
+          ><template #default="{ row }">{{ fmtDate(row.startDate) }}</template></el-table-column
+        ><el-table-column label="结束日期"
           ><template #default="{ row }"
-            ><el-tag :type="isExpiring(row) ? 'danger' : 'info'">{{ row.endDate }}</el-tag></template
+            ><el-tag :type="isExpiring(row) ? 'danger' : 'info'">{{ fmtDate(row.endDate) }}</el-tag></template
           ></el-table-column
         ><el-table-column label="操作"
           ><template #default="{ row }"
@@ -86,6 +85,7 @@ import { ElMessage } from 'element-plus'
 import { hrApi } from '../../api/hr'
 import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
+import { fmtDate } from '../../utils/format'
 const rows = ref([])
 const visible = ref(false)
 const expiringOnly = ref(false)

@@ -16,15 +16,19 @@
       ><el-table :data="rows"
         ><el-table-column
           prop="username"
-          label="用户" /><el-table-column
+          label="用户"
+        /><el-table-column
           prop="method"
-          label="方法" /><el-table-column
+          label="方法"
+        /><el-table-column
           prop="uri"
-          label="接口" /><el-table-column
+          label="接口"
+        /><el-table-column
           prop="success"
-          label="结果" /><el-table-column
-          prop="createdAt"
-          label="时间" /></el-table
+          label="结果"
+        /><el-table-column label="时间"
+          ><template #default="{ row }">{{ fmtDateTime(row.createdAt) }}</template></el-table-column
+        ></el-table
       ><TablePager
         :total="total"
         :page="page"
@@ -37,6 +41,7 @@ import { onMounted, ref } from 'vue'
 import { systemApi } from '../../api/system'
 import PageShell from '../../components/PageShell.vue'
 import TablePager from '../../components/TablePager.vue'
+import { fmtDateTime } from '../../utils/format'
 const rows = ref([])
 const total = ref(0)
 const page = ref(1)

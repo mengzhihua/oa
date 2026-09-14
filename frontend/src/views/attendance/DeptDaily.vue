@@ -20,9 +20,9 @@
         :row-class-name="rowClass"
         ><el-table-column
           prop="employeeId"
-          label="员工" /><el-table-column
-          prop="workDate"
-          label="日期" /><el-table-column label="状态"
+          label="员工" /><el-table-column label="日期"
+          ><template #default="{ row }">{{ fmtDate(row.workDate) }}</template></el-table-column
+        ><el-table-column label="状态"
           ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
         ><el-table-column
           prop="firstIn"
@@ -40,6 +40,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { attendanceApi } from '../../api/attendance'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
+import { fmtDate, fmtDateTime } from '../../utils/format'
 const query = reactive({ deptId: undefined, date: new Date().toISOString().slice(0, 10) })
 const rows = ref([])
 const abnormalOnly = ref(false)

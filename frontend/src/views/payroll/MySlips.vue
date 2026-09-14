@@ -9,7 +9,7 @@
       ><div class="slip-header">
         <strong>{{ slip.periodId }} 工资条</strong
         ><span
-          >实发：<b>¥ {{ slip.net }}</b></span
+          >实发：<b>¥ {{ fmtMoney(slip.net) }}</b></span
         >
       </div>
       <el-row
@@ -21,7 +21,7 @@
             class="slip-line"
           >
             <span>{{ item[0] }}</span
-            ><span>¥ {{ item[1] }}</span>
+            ><span>¥ {{ fmtMoney(item[1]) }}</span>
           </div></el-col
         ><el-col :span="12"
           ><h4>扣款项</h4>
@@ -31,7 +31,7 @@
             class="slip-line"
           >
             <span>{{ item[0] }}</span
-            ><span>¥ {{ item[1] }}</span>
+            ><span>¥ {{ fmtMoney(item[1]) }}</span>
           </div></el-col
         ></el-row
       ></el-card
@@ -44,6 +44,7 @@
 import { onMounted, ref } from 'vue'
 import { payrollApi } from '../../api/payroll'
 import PageShell from '../../components/PageShell.vue'
+import { fmtMoney } from '../../utils/format'
 const rows = ref([])
 function entries(slip, income) {
   let data = {}

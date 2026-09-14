@@ -39,7 +39,7 @@ INSERT IGNORE INTO hr_employee (
     hire_date, regular_date, employment_status, employee_type
 )
 SELECT 'E000001', '张三', '男', '13800000001', 'zhangsan@example.com', d.id, p.id, g.id,
-       CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
+       '2021-03-15', '2021-06-15', 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
 WHERE d.code = 'RD' AND p.code = 'DEV' AND g.code = 'G1';
 INSERT IGNORE INTO hr_employee (
@@ -47,7 +47,7 @@ INSERT IGNORE INTO hr_employee (
     hire_date, regular_date, employment_status, employee_type
 )
 SELECT 'E000002', '李主管', '男', '13800000002', 'manager@example.com', d.id, p.id, g.id,
-       CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
+       '2019-07-01', '2019-10-01', 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
 WHERE d.code = 'RD' AND p.code = 'DEV_MANAGER' AND g.code = 'G3';
 INSERT IGNORE INTO hr_employee (
@@ -55,7 +55,7 @@ INSERT IGNORE INTO hr_employee (
     hire_date, regular_date, employment_status, employee_type
 )
 SELECT 'E000003', '王人事', '女', '13800000003', 'hr@example.com', d.id, p.id, g.id,
-       CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
+       '2020-11-20', '2021-02-20', 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
 WHERE d.code = 'HR' AND p.code = 'HR_SPECIALIST' AND g.code = 'G2';
 INSERT IGNORE INTO hr_employee (
@@ -63,7 +63,7 @@ INSERT IGNORE INTO hr_employee (
     hire_date, regular_date, employment_status, employee_type
 )
 SELECT 'E000004', '赵财务', '女', '13800000004', 'finance@example.com', d.id, p.id, g.id,
-       CURRENT_DATE, CURRENT_DATE, 'REGULAR', 'FULLTIME'
+       '2021-06-10', '2021-09-10', 'REGULAR', 'FULLTIME'
 FROM org_dept d, org_position p, org_job_grade g
 WHERE d.code = 'FIN' AND p.code = 'FIN_SPECIALIST' AND g.code = 'G2';
 INSERT IGNORE INTO hr_employee (
@@ -71,7 +71,15 @@ INSERT IGNORE INTO hr_employee (
     hire_date, regular_date, employment_status, employee_type
 )
 SELECT employee_no, name, gender, mobile, email, d.id, p.id, g.id,
-       CURRENT_DATE, CURRENT_DATE, employment_status, employee_type
+       CASE employee_no WHEN 'E000005' THEN '2022-04-18' WHEN 'E000006' THEN '2023-09-05'
+                        WHEN 'E000007' THEN '2026-07-15' WHEN 'E000008' THEN '2020-02-10'
+                        WHEN 'E000009' THEN '2024-01-08' WHEN 'E000010' THEN '2022-10-12'
+                        WHEN 'E000011' THEN '2025-03-03' WHEN 'E000012' THEN '2019-12-16' END,
+       CASE employee_no WHEN 'E000005' THEN '2022-07-18' WHEN 'E000006' THEN '2023-12-05'
+                        WHEN 'E000007' THEN '2026-09-15' WHEN 'E000008' THEN '2020-05-10'
+                        WHEN 'E000009' THEN '2024-04-08' WHEN 'E000010' THEN '2023-01-12'
+                        WHEN 'E000011' THEN '2025-06-03' WHEN 'E000012' THEN '2020-03-16' END,
+       employment_status, employee_type
 FROM (
     SELECT 'E000005' employee_no, '陈市场' name, '男' gender, '13800000005' mobile,
            'chen@example.com' email, 'MKT' dept_code, 'MARKETING' position_code,
@@ -214,4 +222,4 @@ WHERE NOT EXISTS (SELECT 1 FROM pay_scheme s WHERE s.employee_id = e.id);
 INSERT IGNORE INTO pay_period (
     year_month, status, att_locked, calc_at, paid_at,
     total_gross, total_net, headcount
-) VALUES ('2026-08', 'PAID', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 12);
+) VALUES ('2026-08', 'OPEN', 1, NULL, NULL, 0, 0, 0);

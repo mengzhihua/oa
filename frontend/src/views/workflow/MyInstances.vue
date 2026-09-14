@@ -15,10 +15,9 @@
           label="类型"
         /><el-table-column label="状态"
           ><template #default="{ row }"><StatusTag :value="row.status" /></template></el-table-column
-        ><el-table-column
-          prop="submittedAt"
-          label="提交时间"
-        /><el-table-column label="操作"
+        ><el-table-column label="提交时间"
+          ><template #default="{ row }">{{ fmtDateTime(row.submittedAt) }}</template></el-table-column
+        ><el-table-column label="操作"
           ><template #default="{ row }"
             ><el-button
               v-if="['PENDING', 'RUNNING'].includes(row.status)"
@@ -52,6 +51,7 @@ import ApprovalTimeline from '../../components/ApprovalTimeline.vue'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import TablePager from '../../components/TablePager.vue'
+import { fmtDateTime } from '../../utils/format'
 const rows = ref([])
 const total = ref(0)
 const page = ref(1)

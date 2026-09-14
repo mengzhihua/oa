@@ -23,9 +23,9 @@
           label="员工 ID"
           width="100" /><el-table-column
           prop="changeType"
-          label="异动类型" /><el-table-column
-          prop="effectiveDate"
-          label="生效日期" /><el-table-column
+          label="异动类型" /><el-table-column label="生效日期"
+          ><template #default="{ row }">{{ fmtDate(row.effectiveDate) }}</template></el-table-column
+        ><el-table-column
           prop="reason"
           label="原因" /><el-table-column label="前后信息"
           ><template #default="{ row }"
@@ -41,6 +41,7 @@ import { onMounted, ref } from 'vue'
 import { hrApi } from '../../api/hr'
 import JsonDrawer from '../../components/JsonDrawer.vue'
 import PageShell from '../../components/PageShell.vue'
+import { fmtDate } from '../../utils/format'
 const employeeId = ref('')
 const rows = ref([])
 async function load() {
