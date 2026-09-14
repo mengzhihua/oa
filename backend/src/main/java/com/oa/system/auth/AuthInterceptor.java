@@ -1,20 +1,86 @@
 package com.oa.system.auth;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.R;
+import com.oa.system.entity.SysOpLog;
+import com.oa.system.service.SysOpLogService;
 import org.springframework.stereotype.Component;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.servlet.HandlerInterceptor;
-import javax.servlet.http.*;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
-    private final TokenService tokens; private final ObjectMapper mapper; private final AccessPolicy policy; private final JdbcTemplate jdbc;
-    public AuthInterceptor(TokenService t,ObjectMapper m,AccessPolicy p,JdbcTemplate j){tokens=t;mapper=m;policy=p;jdbc=j;}
-    public boolean preHandle(HttpServletRequest req,HttpServletResponse res,Object handler) throws Exception {
-        String path=req.getRequestURI(); if("OPTIONS".equalsIgnoreCase(req.getMethod())||path.equals("/api/auth/login")||path.startsWith("/api/oauth/"))return true;
-        String h=req.getHeader("Authorization"); String token=h!=null&&h.regionMatches(true,0,"Bearer ",0,7)?h.substring(7).trim():req.getParameter("oa_token"); TokenService.Principal p=tokens.parse(token);
-        if(p==null)return reject(res,401,"未登录或登录已过期"); if(!policy.allowed(p.getUserId(),req.getMethod(),path))return reject(res,403,"无权访问"); CurrentUser.set(p); return true;
+    private final TokenService tokenService;
+    private final AccessPolicy accessPolicy;
+    private final ObjectMapper objectMapper;
+    private final SysOpLogService opLogService;
+
+    public AuthInterceptor(TokenService tokenService, AccessPolicy accessPolicy,
+                           ObjectMapper objectMapper, SysOpLogService opLogService) {
+        this.tokenService = tokenService;
+        this.accessPolicy = accessPolicy;
+        this.objectMapper = objectMapper;
+        this.opLogService = opLogService;
     }
-    public void afterCompletion(HttpServletRequest r,HttpServletResponse s,Object h,Exception e){try{if(CurrentUser.id()!=null&&("POST".equalsIgnoreCase(r.getMethod())||"PUT".equalsIgnoreCase(r.getMethod())||"DELETE".equalsIgnoreCase(r.getMethod())))jdbc.update("INSERT INTO sys_op_log(username,method,path,response_body) SELECT username,?,?,? FROM sys_user WHERE id=?",r.getMethod(),r.getRequestURI(),String.valueOf(s.getStatus()),CurrentUser.id());}finally{CurrentUser.clear();}}
-    private boolean reject(HttpServletResponse r,int status,String msg)throws Exception{r.setStatus(status);r.setContentType("application/json;charset=UTF-8");r.getWriter().write(mapper.writeValueAsString(R.fail(status,msg)));return false;}
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
+                             Object handler) throws Exception {
+        String path = request.getRequestURI();
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())
+                || "/api/auth/login".equals(path)
+                || path.startsWith("/api/oauth/")
+                || path.startsWith("/actuator/")) {
+            return true;
+        }
+        TokenService.Principal principal = tokenService.parse(bearer(request));
+        if (principal == null) {
+            return reject(response, 401, "未登录或登录已过期");
+        }
+        if (!accessPolicy.allowed(request.getMethod(), path, principal.getRoles())) {
+            return reject(response, 403, "无权访问");
+        }
+        CurrentUser.set(principal);
+        return true;
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
+                                Object handler, Exception exception) {
+        try {
+            if (CurrentUser.id() != null && isMutation(request.getMethod())) {
+                SysOpLog log = new SysOpLog();
+                log.setUsername(CurrentUser.username());
+                log.setMethod(request.getMethod());
+                log.setPath(request.getRequestURI());
+                log.setResponseBody(String.valueOf(response.getStatus()));
+                opLogService.save(log);
+            }
+        } finally {
+            CurrentUser.clear();
+        }
+    }
+
+    private boolean reject(HttpServletResponse response, int status, String message)
+            throws Exception {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(objectMapper.writeValueAsString(R.fail(status, message)));
+        return false;
+    }
+
+    private static boolean isMutation(String method) {
+        return "POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)
+                || "DELETE".equalsIgnoreCase(method);
+    }
+
+    public static String bearer(HttpServletRequest request) {
+        String value = request.getHeader("Authorization");
+        if (value != null && value.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return value.substring(7).trim();
+        }
+        return request.getParameter("oa_token");
+    }
 }

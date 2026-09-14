@@ -7,7 +7,23 @@ public class R<T> {
     private int code;
     private String msg;
     private T data;
-    public static <T> R<T> ok(T data) { R<T> r = new R<T>(); r.code = 0; r.msg = "成功"; r.data = data; return r; }
-    public static R<Void> ok() { return ok(null); }
-    public static <T> R<T> fail(int code, String msg) { R<T> r = new R<T>(); r.code = code; r.msg = msg; return r; }
+
+    public static <T> R<T> ok(T data) {
+        R<T> result = new R<>();
+        result.code = 0;
+        result.msg = "成功";
+        result.data = data;
+        return result;
+    }
+
+    public static R<Void> ok() {
+        return ok(null);
+    }
+
+    public static <T> R<T> fail(int code, String message) {
+        R<T> result = new R<>();
+        result.code = code;
+        result.msg = message;
+        return result;
+    }
 }

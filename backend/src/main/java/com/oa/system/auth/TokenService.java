@@ -4,26 +4,166 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.*;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Component
 public class TokenService {
-    private final byte[] key; private final long ttl; private final ObjectMapper mapper = new ObjectMapper();
-    public TokenService(@Value("${oa.auth.secret:}") String secret, @Value("${oa.auth.token-ttl:12h}") Duration ttl) {
-        if (secret == null || secret.trim().isEmpty()) { key = new byte[32]; new SecureRandom().nextBytes(key); } else key = secret.getBytes(StandardCharsets.UTF_8); this.ttl = ttl.toMillis();
+    private final byte[] key;
+    private final long tokenTtl;
+    private final ObjectMapper objectMapper;
+
+    public TokenService(@Value("${oa.auth.secret:}") String secret,
+                        @Value("${oa.auth.token-ttl:12h}") Duration tokenTtl,
+                        ObjectMapper objectMapper) {
+        if (secret == null || secret.trim().isEmpty()) {
+            this.key = new byte[32];
+            new SecureRandom().nextBytes(this.key);
+        } else {
+            this.key = secret.getBytes(StandardCharsets.UTF_8);
+        }
+        this.tokenTtl = tokenTtl.toMillis();
+        this.objectMapper = objectMapper;
     }
-    public String issue(Long uid, String username) { Map<String,Object> p = new HashMap<String,Object>(); p.put("sub",uid); p.put("username",username); p.put("exp",System.currentTimeMillis()+ttl); p.put("typ","oa"); return issue(p); }
-    public String issueOAuth(Long uid, String username, String clientId, long expires) { Map<String,Object> p = new HashMap<String,Object>(); p.put("sub",uid); p.put("username",username); p.put("exp",System.currentTimeMillis()+expires); p.put("typ","oauth"); p.put("cid",clientId); return issue(p); }
-    public String issue(Map<String,Object> p) { try { String h = b64("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8)); String b = b64(mapper.writeValueAsBytes(p)); return h+"."+b+"."+b64(sign(h+"."+b)); } catch (Exception e) { throw new IllegalStateException(e); } }
+
+    public String issue(Long userId, String username, Set<String> roles) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", userId);
+        claims.put("username", username);
+        claims.put("roles", roles);
+        claims.put("typ", "oa");
+        claims.put("exp", System.currentTimeMillis() + tokenTtl);
+        return issue(claims);
+    }
+
+    public String issue(Long userId, String username) {
+        return issue(userId, username, new HashSet<String>());
+    }
+
+    public String issueOauth(Long userId, String username, String clientId, long ttl) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", userId);
+        claims.put("username", username);
+        claims.put("cid", clientId);
+        claims.put("typ", "oauth");
+        claims.put("exp", System.currentTimeMillis() + ttl);
+        return issue(claims);
+    }
+
+    public String issueOAuth(Long userId, String username, String clientId, long ttl) {
+        return issueOauth(userId, username, clientId, ttl);
+    }
+
+    public String issue(Map<String, Object> claims) {
+        try {
+            String header = encode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}"
+                    .getBytes(StandardCharsets.UTF_8));
+            String payload = encode(objectMapper.writeValueAsBytes(claims));
+            String body = header + "." + payload;
+            return body + "." + encode(sign(body));
+        } catch (Exception exception) {
+            throw new IllegalStateException("令牌生成失败", exception);
+        }
+    }
+
     public Principal parse(String token) {
-        try { if (token == null) return null; String[] x=token.split("\\."); if(x.length!=3 || !MessageDigest.isEqual(Base64.getUrlDecoder().decode(x[2]),sign(x[0]+"."+x[1]))) return null; Map<String,Object> p=mapper.readValue(Base64.getUrlDecoder().decode(x[1]),new TypeReference<Map<String,Object>>(){}); long exp=((Number)p.get("exp")).longValue(); if(exp<System.currentTimeMillis()) return null; return new Principal(((Number)p.get("sub")).longValue(),String.valueOf(p.get("username")),String.valueOf(p.get("typ")),p); } catch(Exception e){return null;}
+        try {
+            if (token == null) {
+                return null;
+            }
+            String[] parts = token.split("\\.");
+            if (parts.length != 3 || !MessageDigest.isEqual(
+                    Base64.getUrlDecoder().decode(parts[2]), sign(parts[0] + "." + parts[1]))) {
+                return null;
+            }
+            Map<String, Object> claims = objectMapper.readValue(
+                    Base64.getUrlDecoder().decode(parts[1]),
+                    new TypeReference<Map<String, Object>>() {
+                    });
+            if (((Number) claims.get("exp")).longValue() < System.currentTimeMillis()) {
+                return null;
+            }
+            Set<String> roles = new HashSet<>();
+            Object roleClaim = claims.get("roles");
+            if (roleClaim instanceof Iterable) {
+                for (Object role : (Iterable<?>) roleClaim) {
+                    roles.add(String.valueOf(role));
+                }
+            }
+            Object subject = claims.get("sub");
+            Long userId = subject instanceof Number ? ((Number) subject).longValue() : null;
+            return new Principal(userId,
+                    String.valueOf(claims.get("username")), String.valueOf(claims.get("typ")),
+                    String.valueOf(claims.get("cid")), roles, claims);
+        } catch (Exception exception) {
+            return null;
+        }
     }
-    private byte[] sign(String s) { try { Mac m=Mac.getInstance("HmacSHA256");m.init(new SecretKeySpec(key,"HmacSHA256"));return m.doFinal(s.getBytes(StandardCharsets.UTF_8)); } catch(Exception e){throw new IllegalStateException(e);} }
-    private static String b64(byte[] b){return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
-    public static class Principal { private final Long userId; private final String username, type; private final Map<String,Object> claims; public Principal(Long id,String u,String t,Map<String,Object> c){userId=id;username=u;type=t;claims=c;} public Long getUserId(){return userId;} public String getUsername(){return username;} public String getType(){return type;} public Map<String,Object> getClaims(){return claims;} }
+
+    private byte[] sign(String body) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception exception) {
+            throw new IllegalStateException("令牌签名失败", exception);
+        }
+    }
+
+    private static String encode(byte[] bytes) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    public static class Principal {
+        private final Long userId;
+        private final String username;
+        private final String type;
+        private final String clientId;
+        private final Set<String> roles;
+        private final Map<String, Object> claims;
+
+        public Principal(Long userId, String username, String type, String clientId,
+                         Set<String> roles, Map<String, Object> claims) {
+            this.userId = userId;
+            this.username = username;
+            this.type = type;
+            this.clientId = clientId;
+            this.roles = roles;
+            this.claims = claims;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public String getClientId() {
+            return clientId;
+        }
+
+        public Set<String> getRoles() {
+            return roles;
+        }
+
+        public Map<String, Object> getClaims() {
+            return claims;
+        }
+    }
 }
