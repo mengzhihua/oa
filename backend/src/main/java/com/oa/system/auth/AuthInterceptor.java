@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.R;
 import com.oa.system.entity.SysOpLog;
 import com.oa.system.service.SysOpLogService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -16,13 +17,16 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final AccessPolicy accessPolicy;
     private final ObjectMapper objectMapper;
     private final SysOpLogService opLogService;
+    private final JdbcTemplate jdbc;
 
     public AuthInterceptor(TokenService tokenService, AccessPolicy accessPolicy,
-                           ObjectMapper objectMapper, SysOpLogService opLogService) {
+                           ObjectMapper objectMapper, SysOpLogService opLogService,
+                           JdbcTemplate jdbc) {
         this.tokenService = tokenService;
         this.accessPolicy = accessPolicy;
         this.objectMapper = objectMapper;
         this.opLogService = opLogService;
+        this.jdbc = jdbc;
     }
 
     @Override
@@ -31,7 +35,12 @@ public class AuthInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())
                 || "/api/auth/login".equals(path)
-                || path.startsWith("/api/oauth/")
+                || "/api/oauth/authorize".equals(path)
+                || "/api/oauth/token".equals(path)
+                || "/api/oauth/introspect".equals(path)
+                || "/api/oauth/revoke".equals(path)
+                || "/api/oauth/userinfo".equals(path)
+                || path.startsWith("/api/oauth/.well-known/")
                 || path.startsWith("/actuator/")) {
             return true;
         }
@@ -39,11 +48,23 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (principal == null) {
             return reject(response, 401, "未登录或登录已过期");
         }
+        if (!active(principal.getUserId())) {
+            return reject(response, 401, "账号已停用");
+        }
         if (!accessPolicy.allowed(request.getMethod(), path, principal.getRoles())) {
             return reject(response, 403, "无权访问");
         }
         CurrentUser.set(principal);
         return true;
+    }
+
+    private boolean active(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user "
+                        + "WHERE id = ? AND status = 1", Integer.class, userId);
+        return count != null && count > 0;
     }
 
     @Override

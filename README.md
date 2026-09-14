@@ -75,6 +75,21 @@ Spring Boot + MyBatis-Plus 后端与 Vue 3 + Element Plus 前端，覆盖从员�
 前端菜单和写按钮依据 `/api/auth/me` 返回的角色过滤；后端通过
 `AccessPolicy` 和当前用户上下文再次校验权限，不能仅依赖前端隐藏按钮。
 
+### 后端权限矩阵
+
+| 资源 | EMPLOYEE | MANAGER | HR | FINANCE | ADMIN |
+| --- | --- | --- | --- | --- | --- |
+| 组织树、通讯录 | 读 | 读 | 读写 | 读 | 读写 |
+| 员工/合同/异动查询 | — | 只读 | 读写 | — | 读写 |
+| 工资自助 `/api/payroll/slips/mine` | 仅本人 | 仅本人 | 仅本人 | 仅本人 | 仅本人 |
+| 工资管理、工资单、报表 | — | — | 读写 | 读写 | 读写 |
+| 工资审核、发放 | — | — | — | 读写 | 读写 |
+| 系统用户 | — | — | 读写 | — | 读写 |
+| 操作日志、OAuth 客户端 | — | — | — | — | 读写 |
+| 考勤、审批、协同、工作台 | 登录可用 | 登录可用 | 登录可用 | 登录可用 | 登录可用 |
+
+后端请求必须携带 OA Bearer Token；停用账号即使持有未过期 Token 也会返回 401。
+
 ## OAuth2.0 统一认证
 
 ### 端点
@@ -83,7 +98,7 @@ Spring Boot + MyBatis-Plus 后端与 Vue 3 + Element Plus 前端，覆盖从员�
 | --- | --- | --- |
 | GET | `/api/oauth/authorize` | 授权码申请，支持 `state` 和 PKCE |
 | POST | `/api/oauth/token` | authorization_code、refresh_token 换取令牌 |
-| GET | `/api/oauth/userinfo` | 按 scope 返回用户信息 |
+| GET | `/api/oauth/userinfo` | OAuth Token 自校验后按 scope 返回用户信息 |
 | POST | `/api/oauth/introspect` | 检查 access/refresh token 是否有效 |
 | POST | `/api/oauth/revoke` | 撤销 access 或 refresh token |
 
@@ -221,6 +236,10 @@ npm run dev
 rm -rf backend/data
 ```
 
+生产环境请设置固定的 `OA_AUTH_SECRET`（对应 `oa.auth.secret`），否则服务启动时会
+生成随机令牌密钥并输出 WARN，重启后旧 Token 将全部失效。生产环境同时建议设置
+`OA_DEMO_SEED=false`（对应 `oa.demo.seed`）跳过演示账号、客户端和工资初始化。
+
 MySQL profile：
 
 ```bash
@@ -248,8 +267,9 @@ cd ..
 ./scripts/smoke.sh
 ```
 
-测试覆盖考勤迟到/早退/缺勤/请假/节假日/补卡、工资金额与累计个税、考勤锁定
-约束和审批回调。smoke 覆盖登录、打卡、请假审批、月度锁定、工资发放、工资条、
+测试覆盖权限边界、OAuth 授权码重放与 scope、考勤迟到/早退/缺勤/缺卡/请假/
+节假日/补卡、工资金额与累计个税、考勤锁定约束和审批回调。smoke 覆盖登录、打卡、
+请假审批、月度锁定、工资发放、工资条、
 公告消息、会议室冲突和工作台。
 
 ## 主要数据表
@@ -276,7 +296,8 @@ A：入口 `main.js` 已注册 Element Plus `zhCn`，并且页面统一使用分
 重新启动 Vite 后清理浏览器缓存即可。
 
 **Q：工资期间提示“月度考勤未锁定”？**
-A：先在考勤月度汇总页执行生成、确认、锁定，再回到工资期间计算。
+A：先为期间内所有有薪员工生成月度汇总，确认并锁定；锁定会在事务内同步将同月
+工资期间的 `att_locked` 置为 1，之后才能计算工资。
 
 **Q：如何获得演示工资条？**
 A：首次启动会为 `2026-08` OPEN 期间补齐 LOCKED 月度汇总，并幂等执行计算、

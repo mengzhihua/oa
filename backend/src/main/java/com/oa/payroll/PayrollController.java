@@ -145,7 +145,7 @@ public class PayrollController {
         PayPeriod period = new PayPeriod();
         period.setYearMonth(yearMonth);
         period.setStatus("OPEN");
-        period.setAttLocked(1);
+        period.setAttLocked(0);
         period.setTotalGross(java.math.BigDecimal.ZERO);
         period.setTotalNet(java.math.BigDecimal.ZERO);
         period.setHeadcount(0);

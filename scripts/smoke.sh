@@ -63,7 +63,7 @@ ok "$(json -X POST "${MAUTH[@]}" -H 'Content-Type: application/json' \
 echo "[步骤] HR 重算日结" >&2
 ok "$(json -X POST "${AUTH[@]}" "$BASE_URL/api/attendance/daily/recalc?from=2026-09-14&to=2026-09-14")"
 echo "[步骤] 生成月度考勤" >&2
-ok "$(json -X POST "${AUTH[@]}" "$BASE_URL/api/attendance/monthly/generate?yearMonth=2026-09&deptId=2")"
+ok "$(json -X POST "${AUTH[@]}" "$BASE_URL/api/attendance/monthly/generate?yearMonth=2026-09")"
 echo "[步骤] 确认月度考勤" >&2
 ok "$(json -X POST "${AUTH[@]}" "$BASE_URL/api/attendance/monthly/2026-09/confirm")"
 echo "[步骤] 锁定月度考勤" >&2
@@ -74,6 +74,8 @@ PERIOD="$(json -X POST "${AUTH[@]}" \
   "$BASE_URL/api/payroll/periods/open?yearMonth=2026-09")"
 ok "$PERIOD"
 PERIOD_ID="$(printf '%s' "$PERIOD" | jq -r '.data.id')"
+echo "[步骤] 同步工资期间考勤锁定标记" >&2
+ok "$(json -X POST "${AUTH[@]}" "$BASE_URL/api/attendance/monthly/2026-09/lock")"
 FINANCE="$(login finance fin123)"
 FT="$(token "$FINANCE")"
 FAUTH=(-H "Authorization: Bearer $FT")

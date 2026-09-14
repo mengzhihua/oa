@@ -3,6 +3,8 @@ package com.oa.system.auth;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -19,6 +21,7 @@ import java.util.Set;
 
 @Component
 public class TokenService {
+    private static final Logger log = LoggerFactory.getLogger(TokenService.class);
     private final byte[] key;
     private final long tokenTtl;
     private final ObjectMapper objectMapper;
@@ -29,6 +32,7 @@ public class TokenService {
         if (secret == null || secret.trim().isEmpty()) {
             this.key = new byte[32];
             new SecureRandom().nextBytes(this.key);
+            log.warn("未配置 oa.auth.secret，当前启动使用随机令牌密钥；生产环境必须配置固定密钥");
         } else {
             this.key = secret.getBytes(StandardCharsets.UTF_8);
         }
