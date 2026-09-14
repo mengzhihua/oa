@@ -37,14 +37,17 @@ public class WorkflowController {
     private final WorkflowService workflowService;
     private final WfDefinitionService definitionService;
     private final WfTaskService taskService;
+    private final com.oa.workflow.service.WfInstanceService instanceService;
 
     public WorkflowController(JdbcTemplate jdbc, WorkflowService workflowService,
                               WfDefinitionService definitionService,
-                              WfTaskService taskService) {
+                              WfTaskService taskService,
+                              com.oa.workflow.service.WfInstanceService instanceService) {
         this.jdbc = jdbc;
         this.workflowService = workflowService;
         this.definitionService = definitionService;
         this.taskService = taskService;
+        this.instanceService = instanceService;
     }
 
     @GetMapping("/definitions")
@@ -58,15 +61,9 @@ public class WorkflowController {
     public R<PageResult<WorkflowInstanceView>> instances(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "20") long size) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT * FROM wf_instance WHERE applicant_id = ? ORDER BY id DESC",
-                CurrentUser.id());
-        int from = (int) Math.min((page - 1) * size, rows.size());
-        int to = (int) Math.min(page * size, rows.size());
-        List<WorkflowInstanceView> records = rows.subList(from, to).stream()
-                .map(this::toInstance)
-                .collect(Collectors.toList());
-        return R.ok(new PageResult<>(rows.size(), page, size, records));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<WorkflowInstanceView> result =
+                instanceService.pageByApplicant(page, size, CurrentUser.id());
+        return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
     }
 
     @GetMapping("/instances/{id}")

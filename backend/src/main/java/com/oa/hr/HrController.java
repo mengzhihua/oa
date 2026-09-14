@@ -63,32 +63,9 @@ public class HrController {
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status) {
-        String pattern = keyword == null ? "%" : "%" + keyword + "%";
-        String statusPattern = status == null ? "%" : status;
-        List<EmployeeRow> rows = jdbc.query(
-                "SELECT e.id, e.employee_no, e.name, e.gender, e.mobile, e.email, "
-                        + "e.dept_id, d.name dept_name, e.employment_status, e.hire_date "
-                        + "FROM hr_employee e LEFT JOIN org_dept d ON d.id = e.dept_id "
-                        + "WHERE (e.name LIKE ? OR e.employee_no LIKE ?) "
-                        + "AND e.employment_status LIKE ? ORDER BY e.id",
-                new Object[]{pattern, pattern, statusPattern},
-                (result, row) -> {
-                    EmployeeRow item = new EmployeeRow();
-                    item.setId(result.getLong("id"));
-                    item.setEmployeeNo(result.getString("employee_no"));
-                    item.setName(result.getString("name"));
-                    item.setGender(result.getString("gender"));
-                    item.setMobile(result.getString("mobile"));
-                    item.setEmail(result.getString("email"));
-                    item.setDeptId(result.getLong("dept_id"));
-                    item.setDeptName(result.getString("dept_name"));
-                    item.setEmploymentStatus(result.getString("employment_status"));
-                    item.setHireDate(result.getObject("hire_date", LocalDate.class));
-                    return item;
-                });
-        int from = (int) Math.min((page - 1) * size, rows.size());
-        int to = (int) Math.min(page * size, rows.size());
-        return R.ok(new PageResult<>(rows.size(), page, size, rows.subList(from, to)));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<EmployeeRow> result =
+                employeeService.pageRows(page, size, keyword, status);
+        return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
     }
 
     @GetMapping("/employees/{id}")
