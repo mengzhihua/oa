@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SpringBootTest
 @ActiveProfiles("test")
 public class PayrollCalcTest {
+    private Long testEmployeeId;
     @Autowired
     private PayrollCalcService payrollCalcService;
 
@@ -150,6 +151,7 @@ public class PayrollCalcTest {
         jdbc.update("DELETE FROM att_overtime_request WHERE employee_id = ?", employeeId);
         jdbc.update("DELETE FROM att_daily WHERE employee_id = ?", employeeId);
         jdbc.update("DELETE FROM pay_slip WHERE employee_id = ?", employeeId);
+        testEmployeeId = employeeId;
         return employeeId;
     }
 
@@ -162,6 +164,13 @@ public class PayrollCalcTest {
         period.setTotalGross(BigDecimal.ZERO);
         period.setTotalNet(BigDecimal.ZERO);
         periodService.save(period);
+        jdbc.update("DELETE FROM att_monthly_summary WHERE year_month = ?", yearMonth);
+        jdbc.update("INSERT INTO att_monthly_summary "
+                        + "(employee_id, year_month, should_days, actual_days, leave_days, status) "
+                        + "SELECT e.id, ?, 21, 21, '{}', 'LOCKED' FROM hr_employee e "
+                        + "WHERE EXISTS (SELECT 1 FROM pay_scheme s "
+                        + "WHERE s.employee_id = e.id AND s.effective_date <= ?)",
+                yearMonth, LocalDate.parse(yearMonth + "-01"));
         return period;
     }
 

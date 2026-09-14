@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
     @ExceptionHandler(BizException.class)
     public R<Void> biz(BizException exception) {
-        return R.fail(400, exception.getMessage());
+        return R.fail(exception.getCode(), exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

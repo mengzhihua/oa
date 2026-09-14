@@ -26,6 +26,7 @@ const labels = {
   LATE: '迟到',
   EARLY: '早退',
   ABSENT: '缺勤',
+  MISSING: '缺卡',
   LEAVE: '请假',
   DRAFT: '草稿',
   PUBLISHED: '已发布',
@@ -65,7 +66,7 @@ const type = computed(() => {
     )
   )
     return 'success'
-  if (['REJECTED', 'ABSENT', 'REVOKED', 'LEAVING', 'INACTIVE'].includes(props.value)) return 'danger'
+  if (['REJECTED', 'ABSENT', 'MISSING', 'REVOKED', 'LEAVING', 'INACTIVE'].includes(props.value)) return 'danger'
   if (['PENDING', 'RUNNING', 'OPEN', 'CALCULATED', 'LATE', 'EARLY', 'PROBATION'].includes(props.value))
     return 'warning'
   return 'info'

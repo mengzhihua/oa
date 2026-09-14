@@ -16,17 +16,23 @@ public class StartupService {
     private final JdbcTemplate jdbc;
     private final String adminPassword;
     private final PayrollCalcService payrollCalcService;
+    private final boolean demoSeed;
 
     public StartupService(JdbcTemplate jdbc,
                           @Value("${oa.auth.admin-password:admin123}") String adminPassword,
-                          PayrollCalcService payrollCalcService) {
+                          PayrollCalcService payrollCalcService,
+                          @Value("${oa.demo.seed:true}") boolean demoSeed) {
         this.jdbc = jdbc;
         this.adminPassword = adminPassword;
         this.payrollCalcService = payrollCalcService;
+        this.demoSeed = demoSeed;
     }
 
     @PostConstruct
     public void init() {
+        if (!demoSeed) {
+            return;
+        }
         ensureUsers();
         ensureClientSecrets();
         ensureDepartments();
@@ -50,10 +56,6 @@ public class StartupService {
                                 + "(username, password_hash, real_name, employee_id, status) "
                                 + "VALUES (?, ?, ?, ?, 1)",
                         user[0], PasswordHasher.hash(user[4]), user[1], employeeId);
-            } else {
-                jdbc.update("UPDATE sys_user SET password_hash = ?, real_name = ?, "
-                                + "employee_id = ?, status = 1 WHERE username = ?",
-                        PasswordHasher.hash(user[4]), user[1], employeeId, user[0]);
             }
             Long userId = jdbc.queryForObject(
                     "SELECT id FROM sys_user WHERE username = ?", Long.class, user[0]);

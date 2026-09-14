@@ -287,7 +287,11 @@ public class AttendanceService {
             int early = earlyMinutes(daily.getLastOut(), date, shift);
             daily.setLateMinutes(late);
             daily.setEarlyMinutes(early);
-            daily.setStatus(late > 0 ? "LATE" : early > 0 ? "EARLY" : "NORMAL");
+            if (daily.getFirstIn() == null || daily.getLastOut() == null) {
+                daily.setStatus("MISSING");
+            } else {
+                daily.setStatus(late > 0 ? "LATE" : early > 0 ? "EARLY" : "NORMAL");
+            }
         }
         AttDaily existing = dailyService.lambdaQuery()
                 .eq(AttDaily::getEmployeeId, employeeId)
@@ -307,10 +311,16 @@ public class AttendanceService {
         List<Long> employeeIds = employeeIds(deptId);
         int count = 0;
         for (Long employeeId : employeeIds) {
-            for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
-                calcDaily(employeeId, date);
-                count++;
-            }
+            count += recalcEmployee(employeeId, from, to);
+        }
+        return count;
+    }
+
+    public int recalcEmployee(Long employeeId, LocalDate from, LocalDate to) {
+        int count = 0;
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            calcDaily(employeeId, date);
+            count++;
         }
         return count;
     }
@@ -352,7 +362,7 @@ public class AttendanceService {
 
     public List<AttDaily> abnormalities(Long deptId, LocalDate from, LocalDate to) {
         return dailyService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AttDaily>()
-                .in(AttDaily::getStatus, "LATE", "EARLY", "ABSENT")
+                .in(AttDaily::getStatus, "LATE", "EARLY", "ABSENT", "MISSING")
                 .between(from != null && to != null, AttDaily::getWorkDate, from, to)
                 .inSql(deptId != null, AttDaily::getEmployeeId,
                         "SELECT id FROM hr_employee WHERE dept_id = " + deptId)
@@ -413,7 +423,7 @@ public class AttendanceService {
         List<Long> employeeIds = employeeIds(deptId);
         int count = 0;
         for (Long employeeId : employeeIds) {
-            recalc(employeeId, from, to);
+            recalcEmployee(employeeId, from, to);
             Map<String, Object> values = monthlyValues(employeeId, yearMonth, from, to);
             jdbc.update("DELETE FROM att_monthly_summary WHERE employee_id = ? AND year_month = ? "
                             + "AND status <> 'LOCKED'", employeeId, yearMonth);
@@ -440,9 +450,11 @@ public class AttendanceService {
                 + "WHERE year_month = ? AND status = 'DRAFT'", yearMonth);
     }
 
+    @Transactional
     public void lockMonthly(String yearMonth) {
         jdbc.update("UPDATE att_monthly_summary SET status = 'LOCKED' "
                 + "WHERE year_month = ? AND status IN ('DRAFT', 'CONFIRMED')", yearMonth);
+        jdbc.update("UPDATE pay_period SET att_locked = 1 WHERE year_month = ?", yearMonth);
     }
 
     public List<AttDaily> mineDaily(Long userId, String yearMonth) {
@@ -544,7 +556,7 @@ public class AttendanceService {
                     || "EARLY".equals(item.getStatus()) || "PATCHED".equals(item.getStatus())) {
                 actual = actual.add(BigDecimal.ONE);
             }
-            if ("ABSENT".equals(item.getStatus())) {
+            if ("ABSENT".equals(item.getStatus()) || "MISSING".equals(item.getStatus())) {
                 absent = absent.add(BigDecimal.ONE);
             }
             if ("TRIP".equals(item.getStatus())) {

@@ -45,4 +45,21 @@ public class AttendanceCalcTest {
         assertEquals("LATE",
                 attendanceService.calcDaily(1L, LocalDate.of(2026, 9, 11)).getStatus());
     }
+
+    @Test
+    public void 只有一张卡时记录为缺卡且不虚构迟到早退() {
+        jdbc.update("INSERT INTO att_shift "
+                        + "(code, name, work_start, work_end, late_grace_minutes, "
+                        + "early_grace_minutes, is_default) "
+                        + "VALUES ('TEST_MISSING', '缺卡测试班', '09:00:00', '18:00:00', 0, 0, 0)");
+        Long shiftId = jdbc.queryForObject(
+                "SELECT id FROM att_shift WHERE code = 'TEST_MISSING'", Long.class);
+        jdbc.update("INSERT INTO att_schedule (employee_id, work_date, shift_id) "
+                        + "VALUES (1, '2026-09-15', ?)", shiftId);
+        jdbc.update("INSERT INTO att_clock_record "
+                        + "(employee_id, clock_time, clock_type, source, device) "
+                        + "VALUES (1, '2026-09-15 09:30:00', 'IN', 'WEB', '测试设备')");
+        assertEquals("MISSING",
+                attendanceService.calcDaily(1L, LocalDate.of(2026, 9, 15)).getStatus());
+    }
 }

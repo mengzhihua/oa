@@ -78,6 +78,20 @@ public class PayrollCalcService {
         }
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate nextMonth = firstDay.plusMonths(1);
+        Integer unlocked = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM hr_employee e WHERE "
+                        + "(e.employment_status NOT IN ('LEFT', 'LEAVING') "
+                        + "OR (e.employment_status IN ('LEFT', 'LEAVING') "
+                        + "AND e.leave_date >= ? AND e.leave_date < ?)) "
+                        + "AND EXISTS (SELECT 1 FROM pay_scheme s "
+                        + "WHERE s.employee_id = e.id AND s.effective_date <= ?) "
+                        + "AND NOT EXISTS (SELECT 1 FROM att_monthly_summary m "
+                        + "WHERE m.employee_id = e.id AND m.year_month = ? "
+                        + "AND m.status = 'LOCKED')",
+                Integer.class, firstDay, nextMonth, firstDay, period.getYearMonth());
+        if (unlocked != null && unlocked > 0) {
+            throw new BizException("月度考勤未全部锁定");
+        }
         List<Long> employees = jdbc.query(
                 "SELECT id FROM hr_employee WHERE "
                         + "(employment_status NOT IN ('LEFT', 'LEAVING') "

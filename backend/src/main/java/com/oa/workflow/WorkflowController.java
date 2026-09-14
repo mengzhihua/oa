@@ -68,14 +68,30 @@ public class WorkflowController {
 
     @GetMapping("/instances/{id}")
     public R<WorkflowInstanceView> detail(@PathVariable Long id) {
-        WorkflowInstanceView view = toInstance(jdbc.queryForMap(
-                "SELECT * FROM wf_instance WHERE id = ?", id));
+        Map<String, Object> row = jdbc.queryForMap("SELECT * FROM wf_instance WHERE id = ?", id);
+        if (!CurrentUser.get().getRoles().contains("ADMIN")
+                && !CurrentUser.get().getRoles().contains("HR")
+                && !visibleToCurrentUser(id, row)) {
+            throw new com.oa.common.BizException(403, "无权查看该流程");
+        }
+        WorkflowInstanceView view = toInstance(row);
         view.setTasks(taskService.list(new LambdaQueryWrapper<WfTask>()
                         .eq(WfTask::getInstanceId, id)
                         .orderByAsc(WfTask::getNodeSeq)
                         .orderByAsc(WfTask::getId))
                 .stream().map(this::toTask).collect(Collectors.toList()));
         return R.ok(view);
+    }
+
+    private boolean visibleToCurrentUser(Long instanceId, Map<String, Object> instance) {
+        Long applicantId = number(instance, "APPLICANT_ID");
+        if (CurrentUser.id().equals(applicantId)) {
+            return true;
+        }
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM wf_task "
+                        + "WHERE instance_id = ? AND approver_user_id = ?",
+                Integer.class, instanceId, CurrentUser.id());
+        return count != null && count > 0;
     }
 
     @GetMapping("/tasks/todo")

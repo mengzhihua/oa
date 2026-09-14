@@ -55,7 +55,7 @@ public class OAuthController {
             @RequestParam(required = false) String code_challenge_method,
             HttpServletRequest request) {
         TokenService.Principal principal = tokenService.parse(AuthInterceptor.bearer(request));
-        if (principal == null) {
+        if (principal == null || !activeUser(principal.getUserId())) {
             Map<String, String> result = new HashMap<>();
             result.put("loginUrl", "/login?redirect="
                     + URLEncoder.encode(redirect_uri, StandardCharsets.UTF_8));
@@ -68,6 +68,7 @@ public class OAuthController {
         if (client == null || !contains(string(client, "REDIRECT_URIS"), redirect_uri)) {
             return ResponseEntity.badRequest().body(error("invalid_request", "回调地址未登记"));
         }
+        validateScope(scope, client);
         String code = UUID.randomUUID().toString().replace("-", "");
         jdbc.update("INSERT INTO oauth_authorization_code "
                         + "(code, client_id, user_id, redirect_uri, scope, code_challenge, "
@@ -111,7 +112,8 @@ public class OAuthController {
                 return ResponseEntity.ok(refresh(form.get("refresh_token"), clientId, client));
             }
             if ("client_credentials".equals(grantType)) {
-                return ResponseEntity.ok(issue(null, clientId, form.get("scope"), client));
+                return ResponseEntity.ok(issue(null, clientId, requestedScope(form.get("scope"), client),
+                        client));
             }
             if ("password".equals(grantType)
                     && string(client, "GRANT_TYPES").contains("password")) {
@@ -215,8 +217,8 @@ public class OAuthController {
 
     @RequestMapping(value = "/clients", method = {RequestMethod.POST, RequestMethod.PUT})
     public R<Map<String, String>> saveClient(@Valid @RequestBody OauthClientRequest request) {
-        String secret = request.getClientSecret() == null
-                ? UUID.randomUUID().toString() : request.getClientSecret();
+        boolean suppliedSecret = request.getClientSecret() != null;
+        String secret = suppliedSecret ? request.getClientSecret() : UUID.randomUUID().toString();
         if (request.getId() == null) {
             jdbc.update("INSERT INTO oauth_client "
                             + "(client_id, client_secret_hash, client_name, redirect_uris, "
@@ -230,15 +232,26 @@ public class OAuthController {
                     request.getRefreshTokenTtl() == null ? 2592000 : request.getRefreshTokenTtl(),
                     request.getStatus() == null ? 1 : request.getStatus());
         } else {
-            jdbc.update("UPDATE oauth_client SET client_name = ?, redirect_uris = ?, "
-                            + "grant_types = ?, scopes = ?, access_token_ttl = ?, "
-                            + "refresh_token_ttl = ?, status = ? WHERE id = ?",
-                    request.getClientName(), request.getRedirectUris(),
-                    request.getGrantTypes(), request.getScopes(), request.getAccessTokenTtl(),
-                    request.getRefreshTokenTtl(), request.getStatus(), request.getId());
+            if (suppliedSecret) {
+                jdbc.update("UPDATE oauth_client SET client_secret_hash = ?, client_name = ?, "
+                                + "redirect_uris = ?, grant_types = ?, scopes = ?, access_token_ttl = ?, "
+                                + "refresh_token_ttl = ?, status = ? WHERE id = ?",
+                        PasswordHasher.hash(secret), request.getClientName(), request.getRedirectUris(),
+                        request.getGrantTypes(), request.getScopes(), request.getAccessTokenTtl(),
+                        request.getRefreshTokenTtl(), request.getStatus(), request.getId());
+            } else {
+                jdbc.update("UPDATE oauth_client SET client_name = ?, redirect_uris = ?, "
+                                + "grant_types = ?, scopes = ?, access_token_ttl = ?, "
+                                + "refresh_token_ttl = ?, status = ? WHERE id = ?",
+                        request.getClientName(), request.getRedirectUris(),
+                        request.getGrantTypes(), request.getScopes(), request.getAccessTokenTtl(),
+                        request.getRefreshTokenTtl(), request.getStatus(), request.getId());
+            }
         }
         Map<String, String> response = new LinkedHashMap<>();
-        response.put("clientSecret", secret);
+        if (request.getId() == null || suppliedSecret) {
+            response.put("clientSecret", secret);
+        }
         return R.ok(response);
     }
 
@@ -263,8 +276,12 @@ public class OAuthController {
                 throw new BizException("PKCE校验失败");
             }
         }
-        jdbc.update("UPDATE oauth_authorization_code SET used = 1 WHERE id = ?",
-                value(code, "ID"));
+        validateScope(value(code, "SCOPE"), client);
+        int updated = jdbc.update("UPDATE oauth_authorization_code SET used = 1 "
+                        + "WHERE id = ? AND used = 0", value(code, "ID"));
+        if (updated != 1) {
+            throw new BizException("授权码已使用或无效");
+        }
         return issue(number(code, "USER_ID"), clientId, value(code, "SCOPE"), client);
     }
 
@@ -317,18 +334,29 @@ public class OAuthController {
         if (!PasswordHasher.verify(form.get("password"), value(user, "PASSWORD_HASH"))) {
             throw new BizException("用户名或密码错误");
         }
-        return issue(number(user, "ID"), clientId, form.get("scope"), client);
+        return issue(number(user, "ID"), clientId, requestedScope(form.get("scope"), client),
+                client);
     }
 
     private TokenService.Principal validOauthToken(String token) {
         TokenService.Principal principal = tokenService.parse(token);
-        if (principal == null || !"oauth".equals(principal.getType())) {
+        if (principal == null || !"oauth".equals(principal.getType())
+                || !activeUser(principal.getUserId())) {
             return null;
         }
         Integer count = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM oauth_token WHERE access_token = ? AND revoked = 0 "
                         + "AND access_expires_at > ?", Integer.class, token, LocalDateTime.now());
         return count != null && count > 0 ? principal : null;
+    }
+
+    private boolean activeUser(Long userId) {
+        if (userId == null) {
+            return true;
+        }
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user "
+                        + "WHERE id = ? AND status = 1", Integer.class, userId);
+        return count != null && count > 0;
     }
 
     private String tokenScope(String token) {
@@ -371,6 +399,24 @@ public class OAuthController {
             }
         }
         return false;
+    }
+
+    private String requestedScope(String requested, Map<String, Object> client) {
+        String scope = requested == null || requested.trim().isEmpty()
+                ? string(client, "SCOPES").replace(',', ' ') : requested;
+        validateScope(scope, client);
+        return scope;
+    }
+
+    private void validateScope(String scope, Map<String, Object> client) {
+        String registered = string(client, "SCOPES");
+        java.util.Set<String> allowed = new java.util.HashSet<>(
+                java.util.Arrays.asList(registered.replace(',', ' ').trim().split("\\s+")));
+        for (String requested : scope.trim().split("\\s+")) {
+            if (!allowed.contains(requested)) {
+                throw new BizException("scope 超出客户端授权范围");
+            }
+        }
     }
 
     private static boolean hasScope(String scope, String expected) {
