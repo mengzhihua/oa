@@ -29,3 +29,4 @@ oa:
     admin-password: ${OA_ADMIN_PASSWORD:admin123}
   cors.allowed-origins: ${OA_CORS_ALLOWED_ORIGINS:http://localhost:5176}
 logging.level.com.oa: info
+oa.attendance.schedule-enabled: ${OA_ATTENDANCE_SCHEDULE_ENABLED:true}

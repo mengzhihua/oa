@@ -245,7 +245,7 @@ public class WorkflowService {
         String businessType = jdbc.queryForObject(
                 "SELECT business_type FROM wf_instance WHERE id = ?", String.class, instanceId);
         for (WorkflowCallback callback : callbacks) {
-            if (callback.businessType().equals(businessType)) {
+            if (callback.supports(businessType)) {
                 callback.completed(instanceId, status);
             }
         }

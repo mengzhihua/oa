@@ -195,3 +195,56 @@ WHERE d.code = 'EXPENSE'
   AND NOT EXISTS (
       SELECT 1 FROM wf_node n WHERE n.definition_id = d.id AND n.seq = 2
   );
+
+MERGE INTO att_shift (
+    code, name, work_start, work_end, rest_start, rest_end,
+    late_grace_minutes, early_grace_minutes, is_default
+) KEY (code) VALUES
+    ('STANDARD', '标准班', '09:00:00', '18:00:00', '12:00:00', '13:00:00', 10, 10, 1),
+    ('FLEXIBLE', '弹性班', '10:00:00', '19:00:00', '12:00:00', '13:00:00', 10, 10, 0);
+
+MERGE INTO att_holiday (holiday_date, name, type) KEY (holiday_date) VALUES
+    ('2026-01-01', '元旦', 'HOLIDAY'),
+    ('2026-02-17', '春节', 'HOLIDAY'),
+    ('2026-02-18', '春节', 'HOLIDAY'),
+    ('2026-02-19', '春节', 'HOLIDAY'),
+    ('2026-04-04', '清明节', 'HOLIDAY'),
+    ('2026-05-01', '劳动节', 'HOLIDAY'),
+    ('2026-06-19', '端午节', 'HOLIDAY'),
+    ('2026-09-25', '中秋节', 'HOLIDAY'),
+    ('2026-10-01', '国庆节', 'HOLIDAY'),
+    ('2026-10-02', '国庆节', 'HOLIDAY'),
+    ('2026-10-03', '国庆节', 'HOLIDAY'),
+    ('2026-10-04', '国庆节', 'HOLIDAY'),
+    ('2026-10-05', '国庆节', 'HOLIDAY'),
+    ('2026-10-06', '国庆节', 'HOLIDAY'),
+    ('2026-10-07', '国庆节', 'HOLIDAY'),
+    ('2026-02-14', '春节调休', 'WORKDAY'),
+    ('2026-02-28', '春节调休', 'WORKDAY'),
+    ('2026-05-09', '劳动节调休', 'WORKDAY'),
+    ('2026-09-27', '国庆调休', 'WORKDAY');
+
+MERGE INTO att_leave_balance (
+    employee_id, year, leave_type, total_days, used_days
+) KEY (employee_id, year, leave_type) VALUES
+    (1, 15, 'ANNUAL', 15, 0),
+    (2, 15, 'ANNUAL', 15, 0),
+    (3, 10, 'ANNUAL', 10, 0),
+    (4, 10, 'ANNUAL', 10, 0),
+    (5, 5, 'ANNUAL', 5, 0),
+    (6, 5, 'ANNUAL', 5, 0),
+    (7, 5, 'ANNUAL', 5, 0),
+    (8, 5, 'ANNUAL', 5, 0),
+    (9, 5, 'ANNUAL', 5, 0),
+    (10, 5, 'ANNUAL', 5, 0),
+    (11, 5, 'ANNUAL', 5, 0),
+    (12, 5, 'ANNUAL', 5, 0);
+
+MERGE INTO att_clock_record (
+    employee_id, clock_time, clock_type, source, device, remark
+) KEY (employee_id, clock_time, clock_type) VALUES
+    (1, '2026-09-11 09:05:00', 'IN', 'WEB', '演示设备', '演示迟到'),
+    (1, '2026-09-11 18:02:00', 'OUT', 'WEB', '演示设备', NULL),
+    (2, '2026-09-11 08:58:00', 'IN', 'WEB', '演示设备', NULL),
+    (2, '2026-09-11 18:00:00', 'OUT', 'WEB', '演示设备', NULL),
+    (3, '2026-09-12 09:00:00', 'IN', 'APP', '演示设备', NULL);
