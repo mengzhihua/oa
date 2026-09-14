@@ -224,21 +224,20 @@ MERGE INTO att_holiday (holiday_date, name, type) KEY (holiday_date) VALUES
     ('2026-05-09', '劳动节调休', 'WORKDAY'),
     ('2026-09-27', '国庆调休', 'WORKDAY');
 
-MERGE INTO att_leave_balance (
-    employee_id, year, leave_type, total_days, used_days
-) KEY (employee_id, year, leave_type) VALUES
-    (1, 15, 'ANNUAL', 15, 0),
-    (2, 15, 'ANNUAL', 15, 0),
-    (3, 10, 'ANNUAL', 10, 0),
-    (4, 10, 'ANNUAL', 10, 0),
-    (5, 5, 'ANNUAL', 5, 0),
-    (6, 5, 'ANNUAL', 5, 0),
-    (7, 5, 'ANNUAL', 5, 0),
-    (8, 5, 'ANNUAL', 5, 0),
-    (9, 5, 'ANNUAL', 5, 0),
-    (10, 5, 'ANNUAL', 5, 0),
-    (11, 5, 'ANNUAL', 5, 0),
-    (12, 5, 'ANNUAL', 5, 0);
+INSERT INTO att_leave_balance (
+    employee_id, `year`, leave_type, total_days, used_days
+)
+SELECT e.id, 2026, 'ANNUAL',
+       CASE WHEN e.id <= 2 THEN 15 WHEN e.id <= 4 THEN 10 ELSE 5 END,
+       0
+FROM hr_employee e
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM att_leave_balance b
+    WHERE b.employee_id = e.id
+      AND b.`year` = 2026
+      AND b.leave_type = 'ANNUAL'
+);
 
 MERGE INTO att_clock_record (
     employee_id, clock_time, clock_type, source, device, remark
@@ -248,3 +247,57 @@ MERGE INTO att_clock_record (
     (2, '2026-09-11 08:58:00', 'IN', 'WEB', '演示设备', NULL),
     (2, '2026-09-11 18:00:00', 'OUT', 'WEB', '演示设备', NULL),
     (3, '2026-09-12 09:00:00', 'IN', 'APP', '演示设备', NULL);
+
+MERGE INTO pay_item (
+    code, name, type, calc_type, formula, taxable, sort, is_system
+) KEY (code) VALUES
+    ('BASE', '基本工资', 'EARNING', 'FIXED', NULL, 1, 10, 1),
+    ('POST', '岗位工资', 'EARNING', 'FIXED', NULL, 1, 20, 1),
+    ('PERF', '绩效工资', 'EARNING', 'FIXED', NULL, 1, 30, 1),
+    ('MEAL', '餐补', 'EARNING', 'FIXED', NULL, 1, 40, 1),
+    ('TRAFFIC', '交通补贴', 'EARNING', 'FIXED', NULL, 1, 50, 1),
+    ('OT_PAY', '加班费', 'EARNING', 'SYSTEM', NULL, 1, 60, 1),
+    ('LATE_DED', '迟到扣款', 'DEDUCTION', 'SYSTEM', NULL, 0, 70, 1),
+    ('ABSENT_DED', '缺勤扣款', 'DEDUCTION', 'SYSTEM', NULL, 0, 80, 1),
+    ('LEAVE_DED', '请假扣款', 'DEDUCTION', 'SYSTEM', NULL, 0, 90, 1),
+    ('SI_PERSONAL', '社保个人', 'DEDUCTION', 'SYSTEM', NULL, 0, 100, 1),
+    ('HF_PERSONAL', '公积金个人', 'DEDUCTION', 'SYSTEM', NULL, 0, 110, 1),
+    ('TAX', '个人所得税', 'DEDUCTION', 'SYSTEM', NULL, 0, 120, 1),
+    ('SI_COMPANY', '社保单位', 'COMPANY_COST', 'SYSTEM', NULL, 0, 130, 1),
+    ('HF_COMPANY', '公积金单位', 'COMPANY_COST', 'SYSTEM', NULL, 0, 140, 1);
+
+MERGE INTO pay_insurance_rule (
+    city, pension_p, pension_c, medical_p, medical_c, unemployment_p,
+    unemployment_c, injury_c, maternity_c, hf_p, hf_c,
+    si_base_min, si_base_max, hf_base_min, hf_base_max
+) KEY (city) VALUES
+    ('北京', 0.08, 0.16, 0.02, 0.09, 0.005, 0.005, 0.002, 0.008,
+     0.12, 0.12, 5869, 31884, 2320, 31884);
+
+MERGE INTO pay_tax_bracket (
+    level_no, lower_bound, upper_bound, rate, quick_deduction
+) KEY (level_no) VALUES
+    (1, 0, 36000, 0.03, 0),
+    (2, 36000.01, 144000, 0.10, 2520),
+    (3, 144000.01, 300000, 0.20, 16920),
+    (4, 300000.01, 420000, 0.25, 31920),
+    (5, 420000.01, 660000, 0.30, 52920),
+    (6, 660000.01, 960000, 0.35, 85920),
+    (7, 960000.01, NULL, 0.45, 181920);
+
+INSERT INTO pay_scheme (
+    employee_id, effective_date, base_salary, post_salary, perf_salary,
+    allowances_json, si_base, hf_base, status
+)
+SELECT e.id, '2026-01-01', 12000, 3000, 3000,
+       '{"meal":500,"traffic":300}', 15000, 15000, 'ACTIVE'
+FROM hr_employee e
+WHERE NOT EXISTS (
+    SELECT 1 FROM pay_scheme s WHERE s.employee_id = e.id
+);
+
+MERGE INTO pay_period (
+    year_month, status, att_locked, calc_at, paid_at,
+    total_gross, total_net, headcount
+) KEY (year_month) VALUES
+    ('2026-08', 'PAID', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 12);

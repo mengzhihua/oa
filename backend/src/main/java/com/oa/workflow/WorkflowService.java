@@ -3,6 +3,8 @@ package com.oa.workflow;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.BizException;
+import com.oa.collab.entity.OaMessage;
+import com.oa.collab.service.OaMessageService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +20,15 @@ public class WorkflowService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
     private final List<WorkflowCallback> callbacks;
+    private final OaMessageService messageService;
 
     public WorkflowService(JdbcTemplate jdbc, ObjectMapper objectMapper,
-                           List<WorkflowCallback> callbacks) {
+                           List<WorkflowCallback> callbacks,
+                           OaMessageService messageService) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.callbacks = callbacks;
+        this.messageService = messageService;
     }
 
     @Transactional
@@ -50,6 +55,7 @@ public class WorkflowService {
         Long instanceId = jdbc.queryForObject(
                 "SELECT id FROM wf_instance WHERE instance_no = ?", Long.class, instanceNo);
         advance(instanceId, 1, form);
+        notifyTasks(instanceId, title);
         return one("SELECT * FROM wf_instance WHERE id = ?", instanceId);
     }
 
@@ -248,6 +254,30 @@ public class WorkflowService {
             if (callback.supports(businessType)) {
                 callback.completed(instanceId, status);
             }
+        }
+        Long applicantId = jdbc.queryForObject(
+                "SELECT applicant_id FROM wf_instance WHERE id = ?", Long.class, instanceId);
+        OaMessage message = new OaMessage();
+        message.setToUserId(applicantId);
+        message.setType("WORKFLOW");
+        message.setTitle("审批流程已结束");
+        message.setContent("流程处理结果：" + status);
+        message.setLink("/workflow/instances/" + instanceId);
+        messageService.save(message);
+    }
+
+    private void notifyTasks(Long instanceId, String title) {
+        List<Long> users = jdbc.query("SELECT approver_user_id FROM wf_task "
+                        + "WHERE instance_id = ? AND status = 'PENDING'",
+                new Object[]{instanceId}, (result, rowNum) -> result.getLong(1));
+        for (Long userId : users) {
+            OaMessage message = new OaMessage();
+            message.setToUserId(userId);
+            message.setType("WORKFLOW");
+            message.setTitle("新的审批待办");
+            message.setContent(title);
+            message.setLink("/workflow/instances/" + instanceId);
+            messageService.save(message);
         }
     }
 

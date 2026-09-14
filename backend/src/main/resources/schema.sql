@@ -360,11 +360,11 @@ CREATE TABLE IF NOT EXISTS att_leave_balance (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     employee_id BIGINT NOT NULL,
-    year INT NOT NULL,
+    `year` INT NOT NULL,
     leave_type VARCHAR(32) NOT NULL,
     total_days DECIMAL(8, 2) NOT NULL,
     used_days DECIMAL(8, 2) DEFAULT 0,
-    UNIQUE (employee_id, year, leave_type)
+    UNIQUE (employee_id, `year`, leave_type)
 );
 CREATE TABLE IF NOT EXISTS att_monthly_summary (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
