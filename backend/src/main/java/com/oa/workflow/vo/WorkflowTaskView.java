@@ -10,6 +10,7 @@ public class WorkflowTaskView {
     private Long instanceId;
     private Integer nodeSeq;
     private Long approverUserId;
+    private String approverName;
     private String status;
     private String comment;
     private LocalDateTime handledAt;

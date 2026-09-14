@@ -326,7 +326,7 @@ public class PayrollCalcService {
                 message.setType("SYSTEM");
                 message.setTitle("工资单已发放");
                 message.setContent("工资期间 " + period.getYearMonth() + " 的工资单已发放");
-                message.setLink("/payroll/slips/mine");
+                message.setLink("/payroll/my-slips");
                 messageService.save(message);
             }
         }

@@ -8,6 +8,8 @@ import com.oa.hr.dto.TransferRequest;
 import com.oa.hr.entity.HrEmployee;
 import com.oa.hr.service.HrEmployeeService;
 import com.oa.hr.service.HrContractService;
+import com.oa.hr.service.HrEmployeeChangeService;
+import com.oa.hr.entity.HrEmployeeChange;
 import com.oa.hr.entity.HrContract;
 import com.oa.hr.vo.EmployeeRow;
 import com.oa.hr.vo.ImportResult;
@@ -49,12 +51,15 @@ public class HrController {
     private final JdbcTemplate jdbc;
     private final HrEmployeeService employeeService;
     private final HrContractService contractService;
+    private final HrEmployeeChangeService changeService;
 
     public HrController(JdbcTemplate jdbc, HrEmployeeService employeeService,
-                        HrContractService contractService) {
+                        HrContractService contractService,
+                        HrEmployeeChangeService changeService) {
         this.jdbc = jdbc;
         this.employeeService = employeeService;
         this.contractService = contractService;
+        this.changeService = changeService;
     }
 
     @GetMapping("/employees")
@@ -129,6 +134,14 @@ public class HrController {
                 .orderByAsc(HrContract::getEndDate)));
     }
 
+    @GetMapping("/contracts/employee/{employeeId}")
+    public R<List<HrContract>> employeeContracts(@PathVariable Long employeeId) {
+        return R.ok(contractService.lambdaQuery()
+                .eq(HrContract::getEmployeeId, employeeId)
+                .orderByAsc(HrContract::getEndDate)
+                .list());
+    }
+
     @PostMapping("/contracts")
     public R<HrContract> createContract(@Valid @RequestBody ContractRequest request) {
         HrContract contract = toContract(request);
@@ -153,6 +166,19 @@ public class HrController {
         return R.ok(contractService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<HrContract>()
                 .between(HrContract::getEndDate, today, end)
                 .orderByAsc(HrContract::getEndDate)));
+    }
+
+    @GetMapping("/changes")
+    public R<PageResult<HrEmployeeChange>> changes(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size,
+            @RequestParam(required = false) Long employeeId) {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<HrEmployeeChange> result =
+                changeService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<HrEmployeeChange>()
+                                .eq(employeeId != null, HrEmployeeChange::getEmployeeId, employeeId)
+                                .orderByDesc(HrEmployeeChange::getId));
+        return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
     }
 
     @PostMapping("/employees/import")

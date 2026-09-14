@@ -7,7 +7,7 @@
       :key="slip.id"
       class="slip-card"
       ><div class="slip-header">
-        <strong>{{ slip.periodId }} 工资条</strong
+        <strong>{{ slip.yearMonth || slip.periodId }} 工资条</strong
         ><span
           >实发：<b>¥ {{ fmtMoney(slip.net) }}</b></span
         >
@@ -47,6 +47,11 @@ import PageShell from '../../components/PageShell.vue'
 import { fmtMoney } from '../../utils/format'
 const rows = ref([])
 function entries(slip, income) {
+  if (slip.itemDetails?.length) {
+    return slip.itemDetails
+      .filter((item) => (income ? Number(item.amount) >= 0 : Number(item.amount) < 0))
+      .map((item) => [item.name, item.amount])
+  }
   let data = {}
   try {
     data = JSON.parse(slip.itemsJson || '{}')

@@ -175,6 +175,11 @@ public class WorkflowController {
         view.setInstanceId(task.getInstanceId());
         view.setNodeSeq(task.getNodeSeq());
         view.setApproverUserId(task.getApproverUserId());
+        if (task.getApproverUserId() != null) {
+            view.setApproverName(jdbc.queryForObject(
+                    "SELECT real_name FROM sys_user WHERE id = ?", String.class,
+                    task.getApproverUserId()));
+        }
         view.setStatus(task.getStatus());
         view.setComment(task.getComment());
         view.setHandledAt(task.getHandledAt());

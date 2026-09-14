@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("pay_slip")
@@ -27,4 +28,8 @@ public class PaySlip extends BaseEntity {
     private String status;
     private String remark;
     private LocalDateTime viewedAt;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private String yearMonth;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private List<PaySlipItemView> itemDetails;
 }

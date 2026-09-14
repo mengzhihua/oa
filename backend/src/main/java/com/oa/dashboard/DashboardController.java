@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -51,7 +50,11 @@ public class DashboardController {
                 BigDecimal.class, userId, YearMonth.now().atDay(1).atStartOfDay()));
         view.setLatestNotices(collabService.mineNotices(userId).stream().limit(5)
                 .collect(java.util.stream.Collectors.toList()));
-        view.setTodaySchedules(Collections.emptyList());
+        view.setTodaySchedules(jdbc.queryForList(
+                "SELECT title, start_time, end_time, location FROM oa_schedule "
+                        + "WHERE user_id = ? AND start_time >= ? AND start_time < ? "
+                        + "ORDER BY start_time",
+                userId, LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
         if (CurrentUser.roles().contains("HR") || CurrentUser.roles().contains("ADMIN")) {
             fillHr(view);
         }

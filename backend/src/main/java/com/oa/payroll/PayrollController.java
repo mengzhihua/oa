@@ -1,5 +1,7 @@
 package com.oa.payroll;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oa.common.PageResult;
@@ -12,6 +14,7 @@ import com.oa.payroll.entity.PayItem;
 import com.oa.payroll.entity.PayPeriod;
 import com.oa.payroll.entity.PayScheme;
 import com.oa.payroll.entity.PaySlip;
+import com.oa.payroll.entity.PaySlipItemView;
 import com.oa.payroll.entity.PayTaxBracket;
 import com.oa.payroll.service.PayAdjustmentService;
 import com.oa.payroll.service.PayInsuranceRuleService;
@@ -41,6 +44,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.oa.payroll.vo.PayrollCostRow;
 
 @Validated
@@ -57,6 +62,7 @@ public class PayrollController {
     private final PaySalaryChangeService salaryChangeService;
     private final PayrollCalcService calcService;
     private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper;
 
     public PayrollController(PayItemService itemService,
                              PaySchemeService schemeService,
@@ -67,7 +73,8 @@ public class PayrollController {
                              PayAdjustmentService adjustmentService,
                              PaySalaryChangeService salaryChangeService,
                              PayrollCalcService calcService,
-                             JdbcTemplate jdbc) {
+                             JdbcTemplate jdbc,
+                             ObjectMapper objectMapper) {
         this.itemService = itemService;
         this.schemeService = schemeService;
         this.insuranceService = insuranceService;
@@ -78,6 +85,7 @@ public class PayrollController {
         this.salaryChangeService = salaryChangeService;
         this.calcService = calcService;
         this.jdbc = jdbc;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/items")
@@ -187,6 +195,7 @@ public class PayrollController {
                         .eq(periodId != null, PaySlip::getPeriodId, periodId)
                         .eq(deptId != null, PaySlip::getDeptId, deptId)
                         .orderByDesc(PaySlip::getId));
+        enrich(result.getRecords());
         return R.ok(new PageResult<>(result.getTotal(), page, size, result.getRecords()));
     }
 
@@ -212,11 +221,48 @@ public class PayrollController {
                 .in(PaySlip::getStatus, "PAID", "CONFIRMED")
                 .orderByDesc(PaySlip::getId)
                 .list();
+        enrich(slips);
         for (PaySlip slip : slips) {
             slip.setViewedAt(LocalDateTime.now());
             slipService.updateById(slip);
         }
         return R.ok(slips);
+    }
+
+    private void enrich(List<PaySlip> slips) {
+        Map<String, Map<String, Object>> items = new LinkedHashMap<>();
+        for (Map<String, Object> row : jdbc.queryForList(
+                "SELECT code, name, sort FROM pay_item ORDER BY sort, id")) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", row.get("NAME") == null ? row.get("name") : row.get("NAME"));
+            item.put("sort", row.get("SORT") == null ? row.get("sort") : row.get("SORT"));
+            items.put(String.valueOf(row.get("CODE") == null ? row.get("code") : row.get("CODE")),
+                    item);
+        }
+        for (PaySlip slip : slips) {
+            Map<String, Object> values;
+            try {
+                values = objectMapper.readValue(slip.getItemsJson(),
+                        new TypeReference<Map<String, Object>>() { });
+            } catch (Exception exception) {
+                values = new LinkedHashMap<>();
+            }
+            List<PaySlipItemView> details = new ArrayList<>();
+            for (Map.Entry<String, Map<String, Object>> entry : items.entrySet()) {
+                if (!values.containsKey(entry.getKey())) {
+                    continue;
+                }
+                PaySlipItemView detail = new PaySlipItemView();
+                detail.setCode(entry.getKey());
+                detail.setName(String.valueOf(entry.getValue().get("name")));
+                detail.setAmount(new java.math.BigDecimal(String.valueOf(values.get(entry.getKey()))));
+                details.add(detail);
+            }
+            slip.setItemDetails(details);
+            slip.setYearMonth(jdbc.queryForObject(
+                    "SELECT year_month FROM pay_period WHERE id = ?", String.class,
+                    slip.getPeriodId()));
+        }
     }
 
     @GetMapping("/periods/{id}/export")

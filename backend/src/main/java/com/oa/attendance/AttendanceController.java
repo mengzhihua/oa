@@ -98,6 +98,30 @@ public class AttendanceController {
                 .list());
     }
 
+    @GetMapping("/overtimes/mine")
+    public R<List<AttOvertimeRequest>> myOvertimes() {
+        return R.ok(overtimeService.lambdaQuery()
+                .eq(AttOvertimeRequest::getEmployeeId, employeeId())
+                .orderByDesc(AttOvertimeRequest::getId)
+                .list());
+    }
+
+    @GetMapping("/patches/mine")
+    public R<List<AttPatchRequest>> myPatches() {
+        return R.ok(patchService.lambdaQuery()
+                .eq(AttPatchRequest::getEmployeeId, employeeId())
+                .orderByDesc(AttPatchRequest::getId)
+                .list());
+    }
+
+    @GetMapping("/trips/mine")
+    public R<List<AttTripRequest>> myTrips() {
+        return R.ok(tripService.lambdaQuery()
+                .eq(AttTripRequest::getEmployeeId, employeeId())
+                .orderByDesc(AttTripRequest::getId)
+                .list());
+    }
+
     @PostMapping("/overtimes")
     public R<AttOvertimeRequest> overtime(@Valid @RequestBody OvertimeRequest request) {
         return R.ok(attendanceService.submitOvertime(CurrentUser.id(), request));

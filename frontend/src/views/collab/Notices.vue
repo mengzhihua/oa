@@ -65,7 +65,11 @@
             v-model="form.content"
             type="textarea"
             :rows="8" /></el-form-item
-        ><el-form-item label="置顶"><el-switch v-model="form.pinned" /></el-form-item></el-form
+        ><el-form-item label="置顶"
+          ><el-switch
+            v-model="form.pinned"
+            :active-value="1"
+            :inactive-value="0" /></el-form-item></el-form
       ><template #footer
         ><el-button @click="visible = false">取消</el-button
         ><el-button
@@ -105,7 +109,7 @@ function open(row = {}) {
     title: row.title,
     type: row.type || '通知',
     content: row.content || '',
-    pinned: Boolean(row.pinned),
+    pinned: Number(row.pinned || 0),
   })
   visible.value = true
 }

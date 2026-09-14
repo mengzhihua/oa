@@ -44,10 +44,14 @@ import Menus from '../views/system/Menus.vue'
 import Dicts from '../views/system/Dicts.vue'
 import OAuthClients from '../views/system/OAuthClients.vue'
 import OpLogs from '../views/system/OpLogs.vue'
+import Forbidden from '../views/Forbidden.vue'
+import NotFound from '../views/NotFound.vue'
+import { hasRole } from '../auth'
 
 const routes = [
   { path: '/login', component: Login },
   { path: '/oauth/authorize', component: OAuthAuthorize },
+  { path: '/403', component: Forbidden },
   {
     path: '/',
     component: Layout,
@@ -61,15 +65,23 @@ const routes = [
       {
         path: 'hr/employees',
         component: Employees,
-        meta: { title: '员工档案' },
+        meta: { title: '员工档案', roles: ['HR', 'ADMIN', 'MANAGER'] },
       },
-      { path: 'hr/employees/:id', component: EmployeeDetail, meta: { title: '员工详情' } },
+      {
+        path: 'hr/employees/:id',
+        component: EmployeeDetail,
+        meta: { title: '员工详情', roles: ['HR', 'ADMIN', 'MANAGER'] },
+      },
       {
         path: 'hr/contracts',
         component: Contracts,
-        meta: { title: '合同管理' },
+        meta: { title: '合同管理', roles: ['HR', 'ADMIN', 'MANAGER'] },
       },
-      { path: 'hr/changes', component: Changes, meta: { title: '人事异动' } },
+      {
+        path: 'hr/changes',
+        component: Changes,
+        meta: { title: '人事异动', roles: ['HR', 'ADMIN', 'MANAGER'] },
+      },
       { path: 'attendance', redirect: '/attendance/mine' },
       { path: 'attendance/mine', component: MyAttendance, meta: { title: '我的考勤' } },
       { path: 'attendance/requests', component: MyRequests, meta: { title: '我的申请' } },
@@ -86,14 +98,42 @@ const routes = [
       { path: 'workflow/start', component: Start, meta: { title: '发起申请' } },
       { path: 'workflow/definitions', component: Definitions, meta: { title: '流程定义' } },
       { path: 'payroll', redirect: '/payroll/periods' },
-      { path: 'payroll/items', component: PayrollItems, meta: { title: '薪资项目' } },
-      { path: 'payroll/schemes', component: PayrollSchemes, meta: { title: '薪资方案' } },
-      { path: 'payroll/insurance-rules', component: InsuranceRules, meta: { title: '社保规则' } },
-      { path: 'payroll/tax-brackets', component: TaxBrackets, meta: { title: '税率表' } },
-      { path: 'payroll/periods', component: Periods, meta: { title: '工资期间' } },
-      { path: 'payroll/slips', component: Slips, meta: { title: '工资单' } },
-      { path: 'payroll/cost', component: CostReport, meta: { title: '人力成本' } },
-      { path: 'payroll/mine', component: MySlips, meta: { title: '我的工资条' } },
+      {
+        path: 'payroll/items',
+        component: PayrollItems,
+        meta: { title: '薪资项目', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/schemes',
+        component: PayrollSchemes,
+        meta: { title: '薪资方案', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/insurance-rules',
+        component: InsuranceRules,
+        meta: { title: '社保规则', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/tax-brackets',
+        component: TaxBrackets,
+        meta: { title: '税率表', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/periods',
+        component: Periods,
+        meta: { title: '工资期间', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/slips',
+        component: Slips,
+        meta: { title: '工资单', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      {
+        path: 'payroll/cost',
+        component: CostReport,
+        meta: { title: '人力成本', roles: ['HR', 'FINANCE', 'ADMIN'] },
+      },
+      { path: 'payroll/my-slips', component: MySlips, meta: { title: '我的工资条' } },
       { path: 'collab', redirect: '/collab/notices' },
       { path: 'collab/notices', component: Notices, meta: { title: '公告管理' } },
       { path: 'collab/schedules', component: CollabSchedules, meta: { title: '我的日程' } },
@@ -103,21 +143,27 @@ const routes = [
       { path: 'collab/expenses', component: Expenses, meta: { title: '报销管理' } },
       { path: 'contacts', redirect: '/collab/contacts' },
       { path: 'system', redirect: '/system/users' },
-      { path: 'system/users', component: Users, meta: { title: '用户管理' } },
-      { path: 'system/roles', component: Roles, meta: { title: '角色管理' } },
-      { path: 'system/menus', component: Menus, meta: { title: '菜单管理' } },
-      { path: 'system/dicts', component: Dicts, meta: { title: '字典管理' } },
-      { path: 'system/oauth-clients', component: OAuthClients, meta: { title: 'OAuth 客户端' } },
-      { path: 'system/op-logs', component: OpLogs, meta: { title: '操作日志' } },
+      { path: 'system/users', component: Users, meta: { title: '用户管理', roles: ['ADMIN', 'HR'] } },
+      { path: 'system/roles', component: Roles, meta: { title: '角色管理', roles: ['ADMIN'] } },
+      { path: 'system/menus', component: Menus, meta: { title: '菜单管理', roles: ['ADMIN'] } },
+      { path: 'system/dicts', component: Dicts, meta: { title: '字典管理', roles: ['ADMIN'] } },
+      {
+        path: 'system/oauth-clients',
+        component: OAuthClients,
+        meta: { title: 'OAuth 客户端', roles: ['ADMIN'] },
+      },
+      { path: 'system/op-logs', component: OpLogs, meta: { title: '操作日志', roles: ['ADMIN'] } },
     ],
   },
+  { path: '/:pathMatch(.*)*', component: NotFound },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
-  if (to.path === '/login' || to.path === '/oauth/authorize') return true
+  if (to.path === '/login' || to.path === '/oauth/authorize' || to.path === '/403') return true
   if (!auth.token) return { path: '/login', query: { redirect: to.fullPath } }
+  if (to.meta.roles?.length && !hasRole(...to.meta.roles)) return '/403'
   return true
 })
 

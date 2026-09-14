@@ -14,8 +14,8 @@
     >
     <el-card class="today-card"
       ><div><span>今日状态</span><StatusTag :value="today.daily?.status" /></div>
-      <div>上班：{{ today.firstIn || today.daily?.firstIn || '—' }}</div>
-      <div>下班：{{ today.lastOut || today.daily?.lastOut || '—' }}</div></el-card
+      <div>上班：{{ clockTime(today.firstIn || today.daily?.firstIn) || '—' }}</div>
+      <div>下班：{{ clockTime(today.lastOut || today.daily?.lastOut) || '—' }}</div></el-card
     >
     <el-card
       ><el-calendar v-model="calendarDate"
@@ -45,8 +45,16 @@ const yearMonth = computed(() => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 })
 const byDate = computed(() => Object.fromEntries(rows.value.map((row) => [row.workDate, row])))
+function clockTime(value) {
+  if (!value) return ''
+  const text = String(value).replace('T', ' ')
+  return text.length >= 16 ? text.slice(11, 16) : text
+}
 async function load() {
   today.value = await attendanceApi.today()
+  const records = today.value.records || []
+  today.value.firstIn = records.find((item) => item.clockType === 'IN')?.clockTime
+  today.value.lastOut = [...records].reverse().find((item) => item.clockType === 'OUT')?.clockTime
   rows.value = await attendanceApi.dailyMine({ yearMonth: yearMonth.value })
 }
 async function clock() {

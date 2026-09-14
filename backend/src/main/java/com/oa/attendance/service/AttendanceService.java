@@ -108,6 +108,13 @@ public class AttendanceService {
         record.setIp(servletRequest.getRemoteAddr());
         record.setRemark(request.getRemark());
         clockService.save(record);
+        Integer locked = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM att_monthly_summary WHERE employee_id = ? "
+                        + "AND year_month = ? AND status = 'LOCKED'",
+                Integer.class, employeeId, YearMonth.from(now.toLocalDate()).toString());
+        if (locked == null || locked == 0) {
+            calcDaily(employeeId, now.toLocalDate());
+        }
         return record;
     }
 
