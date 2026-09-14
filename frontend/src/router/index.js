@@ -20,6 +20,19 @@ import Schedules from '../views/attendance/Schedules.vue'
 import Holidays from '../views/attendance/Holidays.vue'
 import DeptDaily from '../views/attendance/DeptDaily.vue'
 import Monthly from '../views/attendance/Monthly.vue'
+import Todo from '../views/workflow/Todo.vue'
+import Done from '../views/workflow/Done.vue'
+import MyInstances from '../views/workflow/MyInstances.vue'
+import Start from '../views/workflow/Start.vue'
+import Definitions from '../views/workflow/Definitions.vue'
+import PayrollItems from '../views/payroll/Items.vue'
+import PayrollSchemes from '../views/payroll/Schemes.vue'
+import InsuranceRules from '../views/payroll/InsuranceRules.vue'
+import TaxBrackets from '../views/payroll/TaxBrackets.vue'
+import Periods from '../views/payroll/Periods.vue'
+import Slips from '../views/payroll/Slips.vue'
+import CostReport from '../views/payroll/CostReport.vue'
+import MySlips from '../views/payroll/MySlips.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -55,8 +68,21 @@ const routes = [
       { path: 'attendance/holidays', component: Holidays, meta: { title: '节假日' } },
       { path: 'attendance/dept-daily', component: DeptDaily, meta: { title: '部门日报' } },
       { path: 'attendance/monthly', component: Monthly, meta: { title: '月度汇总' } },
-      { path: 'workflow', component: ModuleView, props: { module: 'workflow' }, meta: { title: '审批中心' } },
-      { path: 'payroll', component: ModuleView, props: { module: 'payroll' }, meta: { title: '工资管理' } },
+      { path: 'workflow', redirect: '/workflow/todo' },
+      { path: 'workflow/todo', component: Todo, meta: { title: '待办审批' } },
+      { path: 'workflow/done', component: Done, meta: { title: '已办审批' } },
+      { path: 'workflow/mine', component: MyInstances, meta: { title: '我的申请' } },
+      { path: 'workflow/start', component: Start, meta: { title: '发起申请' } },
+      { path: 'workflow/definitions', component: Definitions, meta: { title: '流程定义' } },
+      { path: 'payroll', redirect: '/payroll/periods' },
+      { path: 'payroll/items', component: PayrollItems, meta: { title: '薪资项目' } },
+      { path: 'payroll/schemes', component: PayrollSchemes, meta: { title: '薪资方案' } },
+      { path: 'payroll/insurance-rules', component: InsuranceRules, meta: { title: '社保规则' } },
+      { path: 'payroll/tax-brackets', component: TaxBrackets, meta: { title: '税率表' } },
+      { path: 'payroll/periods', component: Periods, meta: { title: '工资期间' } },
+      { path: 'payroll/slips', component: Slips, meta: { title: '工资单' } },
+      { path: 'payroll/cost', component: CostReport, meta: { title: '人力成本' } },
+      { path: 'payroll/mine', component: MySlips, meta: { title: '我的工资条' } },
       { path: 'collab', component: ModuleView, props: { module: 'collab' }, meta: { title: '协同办公' } },
       { path: 'contacts', component: ModuleView, props: { module: 'contacts' }, meta: { title: '通讯录' } },
       { path: 'system', component: ModuleView, props: { module: 'system' }, meta: { title: '系统管理' } },
