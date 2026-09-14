@@ -3,6 +3,7 @@ package com.oa;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.BizException;
+import com.oa.attendance.service.AttendanceService;
 import com.oa.payroll.entity.PayPeriod;
 import com.oa.payroll.entity.PayScheme;
 import com.oa.payroll.entity.PaySlip;
@@ -46,6 +47,9 @@ public class PayrollCalcTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private AttendanceService attendanceService;
 
     @Test
     public void 完整计算应断言工资金额和累计预扣税() throws Exception {
@@ -118,6 +122,52 @@ public class PayrollCalcTest {
         period.setAttLocked(0);
         periodService.updateById(period);
         assertThrows(BizException.class, () -> payrollCalcService.calculate(period.getId()));
+    }
+
+    @Test
+    public void 当月离职员工可以生成月结并算薪() {
+        List<Long> existing = jdbc.query(
+                "SELECT id FROM hr_employee WHERE employee_no = 'TEST-LEFT-001'",
+                (result, rowNum) -> result.getLong(1));
+        Long employeeId = existing.isEmpty() ? null : existing.get(0);
+        if (employeeId == null) {
+            jdbc.update("INSERT INTO hr_employee "
+                            + "(employee_no, name, dept_id, hire_date, regular_date, leave_date, "
+                            + "employment_status, employee_type) VALUES "
+                            + "('TEST-LEFT-001', '离职测试员工', 2, '2024-01-01', "
+                            + "'2024-04-01', '2025-03-15', 'LEFT', 'FULLTIME')");
+            employeeId = jdbc.queryForObject(
+                    "SELECT id FROM hr_employee WHERE employee_no = 'TEST-LEFT-001'",
+                    Long.class);
+        }
+        jdbc.update("DELETE FROM pay_scheme WHERE employee_id = ?", employeeId);
+        PayScheme scheme = new PayScheme();
+        scheme.setEmployeeId(employeeId);
+        scheme.setEffectiveDate(LocalDate.of(2024, 1, 1));
+        scheme.setBaseSalary(new BigDecimal("10000.00"));
+        scheme.setPostSalary(BigDecimal.ZERO);
+        scheme.setPerfSalary(BigDecimal.ZERO);
+        scheme.setAllowancesJson("{}");
+        scheme.setSiBase(new BigDecimal("10000.00"));
+        scheme.setHfBase(new BigDecimal("10000.00"));
+        scheme.setStatus("ACTIVE");
+        schemeService.save(scheme);
+        jdbc.update("DELETE FROM pay_period WHERE year_month = '2025-03'");
+        jdbc.update("DELETE FROM att_monthly_summary WHERE year_month = '2025-03'");
+        jdbc.update("DELETE FROM pay_slip WHERE employee_id = ?", employeeId);
+        PayPeriod period = new PayPeriod();
+        period.setYearMonth("2025-03");
+        period.setStatus("OPEN");
+        period.setAttLocked(0);
+        period.setTotalGross(BigDecimal.ZERO);
+        period.setTotalNet(BigDecimal.ZERO);
+        periodService.save(period);
+        attendanceService.generateMonthly("2025-03", null);
+        attendanceService.lockMonthly("2025-03");
+        payrollCalcService.calculate(period.getId());
+        assertEquals(1, slipService.lambdaQuery()
+                .eq(PaySlip::getPeriodId, period.getId())
+                .eq(PaySlip::getEmployeeId, employeeId).count());
     }
 
     private Long prepareEmployee() {

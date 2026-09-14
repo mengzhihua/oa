@@ -3,6 +3,7 @@ package com.oa.workflow;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oa.common.PageResult;
 import com.oa.common.R;
+import com.oa.common.BizException;
 import com.oa.system.auth.CurrentUser;
 import com.oa.workflow.dto.StartWorkflowRequest;
 import com.oa.workflow.dto.TaskActionRequest;
@@ -141,14 +142,21 @@ public class WorkflowController {
 
     @PostMapping("/instances/start")
     public R<WorkflowInstanceView> start(@Valid @RequestBody StartWorkflowRequest request) {
+        if (!"GENERAL".equals(request.getDefinitionCode())
+                || (request.getBusinessType() != null
+                && !request.getBusinessType().trim().isEmpty()
+                && !"GENERAL".equals(request.getBusinessType()))
+                || (request.getBusinessId() != null
+                && !request.getBusinessId().trim().isEmpty())) {
+            throw new BizException("通用流程仅允许 GENERAL，业务编号必须为空");
+        }
         Map<String, Object> instance = workflowService.start(
                 request.getDefinitionCode(),
                 CurrentUser.id(),
                 request.getTitle(),
                 request.getForm(),
-                request.getBusinessType() == null
-                        ? request.getDefinitionCode() : request.getBusinessType(),
-                request.getBusinessId());
+                "GENERAL",
+                null);
         return R.ok(toInstance(instance));
     }
 

@@ -105,6 +105,10 @@ public class OAuthController {
                         .body(error("invalid_client", "客户端认证失败"));
             }
             String grantType = form.get("grant_type");
+            if (!contains(string(client, "GRANT_TYPES"), grantType)) {
+                return ResponseEntity.badRequest()
+                        .body(error("unauthorized_client", "客户端未授权该授权类型"));
+            }
             if ("authorization_code".equals(grantType)) {
                 return ResponseEntity.ok(exchangeCode(form, clientId, client));
             }
@@ -115,8 +119,7 @@ public class OAuthController {
                 return ResponseEntity.ok(issue(null, clientId, requestedScope(form.get("scope"), client),
                         client));
             }
-            if ("password".equals(grantType)
-                    && string(client, "GRANT_TYPES").contains("password")) {
+            if ("password".equals(grantType)) {
                 return ResponseEntity.ok(passwordGrant(form, clientId, client));
             }
             return ResponseEntity.badRequest()
@@ -295,6 +298,7 @@ public class OAuthController {
             throw new BizException("刷新令牌无效或已过期");
         }
         Map<String, Object> token = rows.get(0);
+        validateScope(value(token, "SCOPE"), client);
         jdbc.update("UPDATE oauth_token SET revoked = 1 WHERE id = ?", value(token, "ID"));
         return issue(number(token, "USER_ID"), clientId, value(token, "SCOPE"), client);
     }
@@ -390,7 +394,7 @@ public class OAuthController {
     }
 
     private static boolean contains(String csv, String value) {
-        if (csv == null) {
+        if (csv == null || value == null) {
             return false;
         }
         for (String item : csv.split(",")) {

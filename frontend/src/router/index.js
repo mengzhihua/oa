@@ -133,7 +133,7 @@ const routes = [
         component: CostReport,
         meta: { title: '人力成本', roles: ['HR', 'FINANCE', 'ADMIN'] },
       },
-      { path: 'payroll/my-slips', component: MySlips, meta: { title: '我的工资条' } },
+      { path: 'payroll/mine', component: MySlips, meta: { title: '我的工资条' } },
       { path: 'collab', redirect: '/collab/notices' },
       { path: 'collab/notices', component: Notices, meta: { title: '公告管理' } },
       { path: 'collab/schedules', component: CollabSchedules, meta: { title: '我的日程' } },

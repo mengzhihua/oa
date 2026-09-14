@@ -427,10 +427,10 @@ public class AttendanceService {
         }
         LocalDate from = month.atDay(1);
         LocalDate to = month.atEndOfMonth();
-        List<Long> employeeIds = employeeIds(deptId);
+        List<Long> employeeIds = employeeIds(deptId, yearMonth);
         int count = 0;
         for (Long employeeId : employeeIds) {
-            recalcEmployee(employeeId, from, to);
+            recalcEmployee(employeeId, from, payrollEndDate(employeeId, to));
             Map<String, Object> values = monthlyValues(employeeId, yearMonth, from, to);
             jdbc.update("DELETE FROM att_monthly_summary WHERE employee_id = ? AND year_month = ? "
                             + "AND status <> 'LOCKED'", employeeId, yearMonth);
@@ -583,6 +583,31 @@ public class AttendanceService {
         return values;
     }
 
+    public List<Long> payrollEmployeeIds(String yearMonth) {
+        return employeeIds(null, yearMonth);
+    }
+
+    private List<Long> employeeIds(Long deptId, String yearMonth) {
+        YearMonth month = YearMonth.parse(yearMonth);
+        LocalDate from = month.atDay(1);
+        LocalDate nextMonth = month.plusMonths(1).atDay(1);
+        String sql = "SELECT e.id FROM hr_employee e WHERE "
+                + "(e.employment_status NOT IN ('LEFT', 'LEAVING') "
+                + "OR (e.employment_status IN ('LEFT', 'LEAVING') "
+                + "AND e.leave_date >= ? AND e.leave_date < ?)) "
+                + "AND EXISTS (SELECT 1 FROM pay_scheme s "
+                + "WHERE s.employee_id = e.id AND s.effective_date <= ?)";
+        List<Object> args = new ArrayList<>();
+        args.add(from);
+        args.add(nextMonth);
+        args.add(from);
+        if (deptId != null) {
+            sql += " AND e.dept_id = ?";
+            args.add(deptId);
+        }
+        return jdbc.query(sql, args.toArray(), (result, rowNum) -> result.getLong(1));
+    }
+
     private List<Long> employeeIds(Long deptId) {
         if (deptId == null) {
             return jdbc.query("SELECT id FROM hr_employee WHERE employment_status NOT IN ('LEFT', 'LEAVING')",
@@ -591,6 +616,15 @@ public class AttendanceService {
         return jdbc.query("SELECT id FROM hr_employee WHERE dept_id = ? "
                         + "AND employment_status NOT IN ('LEFT', 'LEAVING')",
                 new Object[]{deptId}, (result, rowNum) -> result.getLong(1));
+    }
+
+    private LocalDate payrollEndDate(Long employeeId, LocalDate monthEnd) {
+        LocalDate leaveDate = jdbc.query(
+                "SELECT leave_date FROM hr_employee WHERE id = ?",
+                new Object[]{employeeId},
+                result -> result.next() && result.getDate(1) != null
+                        ? result.getDate(1).toLocalDate() : null);
+        return leaveDate != null && leaveDate.isBefore(monthEnd) ? leaveDate : monthEnd;
     }
 
     private AttShift findShift(Long employeeId, LocalDate date) {

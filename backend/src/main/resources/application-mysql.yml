@@ -12,3 +12,5 @@ spring:
       schema-locations: classpath:schema.sql
       data-locations: classpath:data-mysql.sql
       continue-on-error: false
+oa:
+  demo.data-location: classpath:demo-data-mysql.sql

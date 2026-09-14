@@ -119,6 +119,16 @@ public class OAuthFlowTest {
                 .andExpect(jsonPath("$.error").value("invalid_client"));
     }
 
+    @Test
+    public void 客户端未登记授权类型返回unauthorizedClient() throws Exception {
+        mockMvc.perform(post("/api/oauth/token")
+                        .param("grant_type", "client_credentials")
+                        .param("client_id", "srm-client")
+                        .param("client_secret", "srm-client-secret"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("unauthorized_client"));
+    }
+
     private String login() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

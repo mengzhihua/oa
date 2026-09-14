@@ -23,8 +23,9 @@ Spring Boot + MyBatis-Plus 后端与 Vue 3 + Element Plus 前端，覆盖从员�
 - 前端：Vue 3、Vite、Element Plus、vue-router、axios、Prettier。
 - 认证：OA Bearer Token、OAuth2.0 Authorization Code + PKCE、Refresh Token
   Rotation。
-- 数据：`schema.sql` 为 H2/MySQL 兼容表结构，`data.sql` 用于 H2，`data-mysql.sql`
-  用于 MySQL。
+- 数据：`schema.sql` 为 H2/MySQL 兼容表结构，`data.sql`/`data-mysql.sql` 只包含
+  系统基础数据；演示员工、OAuth 客户端、考勤和工资数据位于
+  `demo-data.sql`/`demo-data-mysql.sql`，由 `oa.demo.seed` 控制加载。
 
 ## 总体架构
 
@@ -205,7 +206,7 @@ backend/
     collab/       公告、日程、会议、消息、报销
     dashboard/    工作台聚合视图
   src/main/resources/
-    schema.sql data.sql data-mysql.sql application*.yml
+    schema.sql data.sql data-mysql.sql demo-data.sql demo-data-mysql.sql application*.yml
 frontend/
   src/api/        按模块拆分的接口
   src/layout/     Layout
@@ -237,8 +238,11 @@ rm -rf backend/data
 ```
 
 生产环境请设置固定的 `OA_AUTH_SECRET`（对应 `oa.auth.secret`），否则服务启动时会
-生成随机令牌密钥并输出 WARN，重启后旧 Token 将全部失效。生产环境同时建议设置
-`OA_DEMO_SEED=false`（对应 `oa.demo.seed`）跳过演示账号、客户端和工资初始化。
+生成随机令牌密钥并输出 WARN，重启后旧 Token 将全部失效。生产环境必须设置
+`OA_DEMO_SEED=false`（对应 `oa.demo.seed`）。演示数据不会通过
+`spring.sql.init` 自动导入，而是由启动初始化器在演示数据不存在且该开关为 `true`
+时执行 `demo-data.sql`；关闭后仍保留系统基础表、角色、菜单和 admin 登录，不会创建
+演示员工、OAuth 客户端、考勤或工资数据。
 
 MySQL profile：
 

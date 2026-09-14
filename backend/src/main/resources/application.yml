@@ -25,6 +25,7 @@ mybatis-plus:
 oa:
   # 生产环境必须设置为 false，并配置固定的 oa.auth.secret。
   demo.seed: ${OA_DEMO_SEED:true}
+  demo.data-location: classpath:demo-data.sql
   auth:
     secret: ${OA_AUTH_SECRET:}
     token-ttl: ${OA_TOKEN_TTL:12h}

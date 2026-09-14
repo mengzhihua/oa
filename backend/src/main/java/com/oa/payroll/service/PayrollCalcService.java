@@ -2,6 +2,7 @@ package com.oa.payroll.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.BizException;
+import com.oa.attendance.service.AttendanceService;
 import com.oa.collab.entity.OaMessage;
 import com.oa.collab.service.OaMessageService;
 import com.oa.payroll.entity.PayInsuranceRule;
@@ -34,6 +35,7 @@ public class PayrollCalcService {
     private final PayAdjustmentService adjustmentService;
     private final ObjectMapper objectMapper;
     private final OaMessageService messageService;
+    private final AttendanceService attendanceService;
 
     public PayrollCalcService(JdbcTemplate jdbc,
                               PayPeriodService periodService,
@@ -43,7 +45,8 @@ public class PayrollCalcService {
                               PayTaxBracketService bracketService,
                               PayAdjustmentService adjustmentService,
                               ObjectMapper objectMapper,
-                              OaMessageService messageService) {
+                              OaMessageService messageService,
+                              AttendanceService attendanceService) {
         this.jdbc = jdbc;
         this.periodService = periodService;
         this.schemeService = schemeService;
@@ -53,6 +56,7 @@ public class PayrollCalcService {
         this.adjustmentService = adjustmentService;
         this.objectMapper = objectMapper;
         this.messageService = messageService;
+        this.attendanceService = attendanceService;
     }
 
     @Transactional
@@ -78,29 +82,21 @@ public class PayrollCalcService {
         }
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate nextMonth = firstDay.plusMonths(1);
+        List<Long> employees = attendanceService.payrollEmployeeIds(period.getYearMonth());
+        if (employees.isEmpty()) {
+            throw new BizException("期间没有可计薪员工");
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(employees.size(), "?"));
+        List<Object> lockArgs = new java.util.ArrayList<>();
+        lockArgs.add(period.getYearMonth());
+        lockArgs.addAll(employees);
         Integer unlocked = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM hr_employee e WHERE "
-                        + "(e.employment_status NOT IN ('LEFT', 'LEAVING') "
-                        + "OR (e.employment_status IN ('LEFT', 'LEAVING') "
-                        + "AND e.leave_date >= ? AND e.leave_date < ?)) "
-                        + "AND EXISTS (SELECT 1 FROM pay_scheme s "
-                        + "WHERE s.employee_id = e.id AND s.effective_date <= ?) "
-                        + "AND NOT EXISTS (SELECT 1 FROM att_monthly_summary m "
-                        + "WHERE m.employee_id = e.id AND m.year_month = ? "
-                        + "AND m.status = 'LOCKED')",
-                Integer.class, firstDay, nextMonth, firstDay, period.getYearMonth());
-        if (unlocked != null && unlocked > 0) {
+                "SELECT COUNT(*) FROM att_monthly_summary WHERE year_month = ? "
+                        + "AND status = 'LOCKED' AND employee_id IN (" + placeholders + ")",
+                Integer.class, lockArgs.toArray());
+        if (unlocked == null || unlocked != employees.size()) {
             throw new BizException("月度考勤未全部锁定");
         }
-        List<Long> employees = jdbc.query(
-                "SELECT id FROM hr_employee WHERE "
-                        + "(employment_status NOT IN ('LEFT', 'LEAVING') "
-                        + "OR (employment_status IN ('LEFT', 'LEAVING') "
-                        + "AND leave_date >= ? AND leave_date < ?)) "
-                        + "AND EXISTS (SELECT 1 FROM pay_scheme s "
-                        + "WHERE s.employee_id = hr_employee.id AND s.effective_date <= ?)",
-                new Object[]{firstDay, nextMonth, firstDay},
-                (result, rowNum) -> result.getLong(1));
         jdbc.update("DELETE FROM pay_slip WHERE period_id = ?", periodId);
         BigDecimal totalGross = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         BigDecimal totalNet = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -326,7 +322,7 @@ public class PayrollCalcService {
                 message.setType("SYSTEM");
                 message.setTitle("工资单已发放");
                 message.setContent("工资期间 " + period.getYearMonth() + " 的工资单已发放");
-                message.setLink("/payroll/my-slips");
+                message.setLink("/payroll/mine");
                 messageService.save(message);
             }
         }

@@ -25,6 +25,7 @@ import com.oa.payroll.service.PaySchemeService;
 import com.oa.payroll.service.PaySlipService;
 import com.oa.payroll.service.PayTaxBracketService;
 import com.oa.payroll.service.PayrollCalcService;
+import com.oa.attendance.service.AttendanceService;
 import com.oa.payroll.entity.PaySalaryChange;
 import com.oa.system.auth.CurrentUser;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,6 +64,7 @@ public class PayrollController {
     private final PayrollCalcService calcService;
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final AttendanceService attendanceService;
 
     public PayrollController(PayItemService itemService,
                              PaySchemeService schemeService,
@@ -74,7 +76,8 @@ public class PayrollController {
                              PaySalaryChangeService salaryChangeService,
                              PayrollCalcService calcService,
                              JdbcTemplate jdbc,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             AttendanceService attendanceService) {
         this.itemService = itemService;
         this.schemeService = schemeService;
         this.insuranceService = insuranceService;
@@ -86,6 +89,7 @@ public class PayrollController {
         this.calcService = calcService;
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.attendanceService = attendanceService;
     }
 
     @GetMapping("/items")
@@ -153,7 +157,19 @@ public class PayrollController {
         PayPeriod period = new PayPeriod();
         period.setYearMonth(yearMonth);
         period.setStatus("OPEN");
-        period.setAttLocked(0);
+        List<Long> employeeIds = attendanceService.payrollEmployeeIds(yearMonth);
+        boolean allLocked = !employeeIds.isEmpty();
+        for (Long employeeId : employeeIds) {
+            Integer locked = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM att_monthly_summary "
+                            + "WHERE employee_id = ? AND year_month = ? AND status = 'LOCKED'",
+                    Integer.class, employeeId, yearMonth);
+            if (locked == null || locked == 0) {
+                allLocked = false;
+                break;
+            }
+        }
+        period.setAttLocked(allLocked ? 1 : 0);
         period.setTotalGross(java.math.BigDecimal.ZERO);
         period.setTotalNet(java.math.BigDecimal.ZERO);
         period.setHeadcount(0);
