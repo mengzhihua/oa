@@ -1,18 +1,339 @@
 package com.oa.hr;
-import com.oa.common.*;import com.oa.system.auth.*;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.web.bind.annotation.*;import org.springframework.web.multipart.MultipartFile;import javax.servlet.http.HttpServletResponse;import java.io.*;import java.nio.charset.StandardCharsets;import java.time.LocalDate;import java.util.*;
-@RestController @RequestMapping("/api/hr")
+
+import com.oa.common.PageResult;
+import com.oa.common.R;
+import com.oa.hr.dto.EmployeeRequest;
+import com.oa.hr.dto.ContractRequest;
+import com.oa.hr.dto.TransferRequest;
+import com.oa.hr.entity.HrEmployee;
+import com.oa.hr.service.HrEmployeeService;
+import com.oa.hr.service.HrContractService;
+import com.oa.hr.entity.HrContract;
+import com.oa.hr.vo.EmployeeRow;
+import com.oa.hr.vo.ImportResult;
+import com.oa.hr.vo.ImportRow;
+import com.oa.system.auth.CurrentUser;
+import com.oa.system.auth.PasswordHasher;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+@Validated
+@RestController
+@RequestMapping("/api/hr")
 public class HrController {
- private final JdbcTemplate jdbc;public HrController(JdbcTemplate j){jdbc=j;}
- @GetMapping("/employees")public R<PageResult<Map<String,Object>>> employees(@RequestParam(defaultValue="1")long page,@RequestParam(defaultValue="20")long size,@RequestParam(required=false)String keyword,@RequestParam(required=false)String status){String k=keyword==null?"%":"%"+keyword+"%";List<Map<String,Object>>rs=jdbc.queryForList("SELECT e.*,d.name dept_name,p.name position_name FROM hr_employee e LEFT JOIN org_dept d ON d.id=e.dept_id LEFT JOIN org_position p ON p.id=e.position_id WHERE (e.name LIKE ? OR e.employee_no LIKE ?) AND (? IS NULL OR e.employment_status=?) ORDER BY e.id",k,k,status,status);return R.ok(new PageResult<Map<String,Object>>(rs.size(),page,size,rs));}
- @GetMapping("/employees/{id}")public R<Map<String,Object>> employee(@PathVariable Long id){return R.ok(jdbc.queryForMap("SELECT * FROM hr_employee WHERE id=?",id));}
- @RequestMapping(value="/employees",method={RequestMethod.POST,RequestMethod.PUT})public R<Map<String,Object>> save(@RequestBody Map<String,Object>b){if(b.get("id")==null){String no="E"+String.format("%06d",jdbc.queryForObject("SELECT COALESCE(MAX(CAST(SUBSTRING(employee_no,2) AS INT)),0)+1 FROM hr_employee",Integer.class));jdbc.update("INSERT INTO hr_employee(employee_no,name,gender,mobile,email,dept_id,position_id,employment_status,employee_type,hire_date) VALUES(?,?,?,?,?,?,?,'PROBATION','FULLTIME',CURRENT_DATE)",no,b.get("name"),b.get("gender"),b.get("mobile"),b.get("email"),b.get("deptId"),b.get("positionId"));}else jdbc.update("UPDATE hr_employee SET name=?,gender=?,mobile=?,email=?,dept_id=?,position_id=?,employment_status=? WHERE id=?",b.get("name"),b.get("gender"),b.get("mobile"),b.get("email"),b.get("deptId"),b.get("positionId"),b.getOrDefault("employmentStatus","REGULAR"),b.get("id"));return R.ok(Collections.<String,Object>singletonMap("success",true));}
- @PostMapping("/employees/{id}/regular")public R<Void> regular(@PathVariable Long id){jdbc.update("UPDATE hr_employee SET employment_status='REGULAR',regular_date=CURRENT_DATE WHERE id=?",id);return R.ok();}
- @PostMapping("/employees/{id}/transfer")public R<Void> transfer(@PathVariable Long id,@RequestBody Map<String,Object>b){jdbc.update("UPDATE hr_employee SET dept_id=?,position_id=? WHERE id=?",b.get("deptId"),b.get("positionId"),id);jdbc.update("INSERT INTO hr_employee_change(employee_id,change_type,after_json,effective_date,operator) VALUES(?,'TRANSFER',?,CURRENT_DATE,?)",id,b.toString(),CurrentUser.id());return R.ok();}
- @PostMapping("/employees/{id}/leave")public R<Void> leave(@PathVariable Long id){jdbc.update("UPDATE hr_employee SET employment_status='LEFT',leave_date=CURRENT_DATE WHERE id=?",id);jdbc.update("UPDATE sys_user SET status=0 WHERE employee_id=?",id);return R.ok();}
- @GetMapping("/changes")public R<List<Map<String,Object>>> changes(@RequestParam(required=false)Long employeeId){return R.ok(employeeId==null?jdbc.queryForList("SELECT * FROM hr_employee_change ORDER BY id DESC"):jdbc.queryForList("SELECT * FROM hr_employee_change WHERE employee_id=? ORDER BY id DESC",employeeId));}
- @GetMapping("/contracts")public R<List<Map<String,Object>>> contracts(){return R.ok(jdbc.queryForList("SELECT * FROM hr_contract ORDER BY end_date"));}
- @GetMapping("/contracts/expiring")public R<List<Map<String,Object>>> expiring(){return R.ok(jdbc.queryForList("SELECT * FROM hr_contract WHERE end_date BETWEEN CURRENT_DATE AND DATEADD('DAY',30,CURRENT_DATE)"));}
- @RequestMapping(value="/contracts",method={RequestMethod.POST,RequestMethod.PUT})public R<Void> contract(@RequestBody Map<String,Object>b){if(b.get("id")==null)jdbc.update("INSERT INTO hr_contract(employee_id,contract_no,type,start_date,end_date,sign_date,status) VALUES(?,?,?,?,?,CURRENT_DATE,'VALID')",b.get("employeeId"),b.get("contractNo"),b.get("type"),b.get("startDate"),b.get("endDate"));else jdbc.update("UPDATE hr_contract SET end_date=?,status=? WHERE id=?",b.get("endDate"),b.get("status"),b.get("id"));return R.ok();}
- @PostMapping("/employees/import")public R<Map<String,Object>> imp(@RequestParam MultipartFile file)throws Exception{return R.ok(Collections.singletonMap("导入行数",Math.max(0,file.getInputStream().available())));}
- @GetMapping("/employees/export")public void export(HttpServletResponse response)throws Exception{response.setContentType("text/csv;charset=UTF-8");response.setHeader("Content-Disposition","attachment; filename=employees.csv");response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});Writer w=new OutputStreamWriter(response.getOutputStream(),StandardCharsets.UTF_8);w.write("工号,姓名,部门,状态\n");for(Map<String,Object>e:jdbc.queryForList("SELECT employee_no,name,employment_status FROM hr_employee"))w.write(e.get("EMPLOYEE_NO")+","+e.get("NAME")+","+e.get("EMPLOYMENT_STATUS")+"\n");w.flush();}
+    private final JdbcTemplate jdbc;
+    private final HrEmployeeService employeeService;
+    private final HrContractService contractService;
+
+    public HrController(JdbcTemplate jdbc, HrEmployeeService employeeService,
+                        HrContractService contractService) {
+        this.jdbc = jdbc;
+        this.employeeService = employeeService;
+        this.contractService = contractService;
+    }
+
+    @GetMapping("/employees")
+    public R<PageResult<EmployeeRow>> employees(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status) {
+        String pattern = keyword == null ? "%" : "%" + keyword + "%";
+        String statusPattern = status == null ? "%" : status;
+        List<EmployeeRow> rows = jdbc.query(
+                "SELECT e.id, e.employee_no, e.name, e.gender, e.mobile, e.email, "
+                        + "e.dept_id, d.name dept_name, e.employment_status, e.hire_date "
+                        + "FROM hr_employee e LEFT JOIN org_dept d ON d.id = e.dept_id "
+                        + "WHERE (e.name LIKE ? OR e.employee_no LIKE ?) "
+                        + "AND e.employment_status LIKE ? ORDER BY e.id",
+                new Object[]{pattern, pattern, statusPattern},
+                (result, row) -> {
+                    EmployeeRow item = new EmployeeRow();
+                    item.setId(result.getLong("id"));
+                    item.setEmployeeNo(result.getString("employee_no"));
+                    item.setName(result.getString("name"));
+                    item.setGender(result.getString("gender"));
+                    item.setMobile(result.getString("mobile"));
+                    item.setEmail(result.getString("email"));
+                    item.setDeptId(result.getLong("dept_id"));
+                    item.setDeptName(result.getString("dept_name"));
+                    item.setEmploymentStatus(result.getString("employment_status"));
+                    item.setHireDate(result.getObject("hire_date", LocalDate.class));
+                    return item;
+                });
+        int from = (int) Math.min((page - 1) * size, rows.size());
+        int to = (int) Math.min(page * size, rows.size());
+        return R.ok(new PageResult<>(rows.size(), page, size, rows.subList(from, to)));
+    }
+
+    @GetMapping("/employees/{id}")
+    public R<HrEmployee> employee(@PathVariable Long id) {
+        return R.ok(employeeService.getById(id));
+    }
+
+    @PostMapping("/employees")
+    public R<HrEmployee> hire(@Valid @RequestBody EmployeeRequest request) {
+        HrEmployee employee = toEntity(request);
+        employee.setEmployeeNo(nextEmployeeNo());
+        employee.setHireDate(LocalDate.now());
+        employee.setEmploymentStatus(defaultValue(request.getEmploymentStatus(), "PROBATION"));
+        employee.setEmployeeType(defaultValue(request.getEmployeeType(), "FULLTIME"));
+        employeeService.save(employee);
+        createUser(employee);
+        return R.ok(employee);
+    }
+
+    @PutMapping("/employees/{id}")
+    public R<HrEmployee> update(@PathVariable Long id,
+                                @Valid @RequestBody EmployeeRequest request) {
+        HrEmployee employee = toEntity(request);
+        employee.setId(id);
+        employeeService.updateById(employee);
+        return R.ok(employeeService.getById(id));
+    }
+
+    @PostMapping("/employees/{id}/regular")
+    public R<Void> regular(@PathVariable Long id) {
+        jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', "
+                + "regular_date = ? WHERE id = ?", LocalDate.now(), id);
+        return R.ok();
+    }
+
+    @PostMapping("/employees/{id}/transfer")
+    public R<Void> transfer(@PathVariable Long id,
+                            @Valid @RequestBody TransferRequest request) {
+        HrEmployee before = employeeService.getById(id);
+        jdbc.update("UPDATE hr_employee SET dept_id = ?, position_id = ? WHERE id = ?",
+                request.getDeptId(), request.getPositionId(), id);
+        jdbc.update("INSERT INTO hr_employee_change "
+                        + "(employee_id, change_type, before_json, after_json, effective_date, "
+                        + "reason, operator) VALUES (?, 'TRANSFER', ?, ?, ?, ?, ?)",
+                id, before == null ? null : before.toString(),
+                request.toString(), LocalDate.now(), request.getReason(), CurrentUser.id());
+        return R.ok();
+    }
+
+    @PostMapping("/employees/{id}/leave")
+    public R<Void> leave(@PathVariable Long id) {
+        jdbc.update("UPDATE hr_employee SET employment_status = 'LEFT', leave_date = ? "
+                + "WHERE id = ?", LocalDate.now(), id);
+        jdbc.update("UPDATE sys_user SET status = 0 WHERE employee_id = ?", id);
+        return R.ok();
+    }
+
+    @GetMapping("/contracts")
+    public R<List<HrContract>> contracts() {
+        return R.ok(contractService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<HrContract>()
+                .orderByAsc(HrContract::getEndDate)));
+    }
+
+    @PostMapping("/contracts")
+    public R<HrContract> createContract(@Valid @RequestBody ContractRequest request) {
+        HrContract contract = toContract(request);
+        contract.setStatus(defaultValue(request.getStatus(), "ACTIVE"));
+        contractService.save(contract);
+        return R.ok(contract);
+    }
+
+    @PutMapping("/contracts/{id}")
+    public R<HrContract> updateContract(@PathVariable Long id,
+                                        @Valid @RequestBody ContractRequest request) {
+        HrContract contract = toContract(request);
+        contract.setId(id);
+        contractService.updateById(contract);
+        return R.ok(contractService.getById(id));
+    }
+
+    @GetMapping("/contracts/expiring")
+    public R<List<HrContract>> expiring() {
+        LocalDate today = LocalDate.now();
+        LocalDate end = today.plusDays(30);
+        return R.ok(contractService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<HrContract>()
+                .between(HrContract::getEndDate, today, end)
+                .orderByAsc(HrContract::getEndDate)));
+    }
+
+    @PostMapping("/employees/import")
+    public R<ImportResult> importEmployees(@RequestParam MultipartFile file) throws IOException {
+        ImportResult result = new ImportResult();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                file.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            int rowNumber = 0;
+            boolean header = true;
+            while ((line = reader.readLine()) != null) {
+                rowNumber++;
+                if (header) {
+                    header = false;
+                    continue;
+                }
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                List<String> values = parseCsv(line.replace("\uFEFF", ""));
+                if (values.size() < 2 || values.get(0).trim().isEmpty()
+                        || values.get(1).trim().isEmpty()) {
+                    result.getRows().add(new ImportRow(rowNumber, false, null,
+                            "工号和姓名不能为空"));
+                    result.setFailureCount(result.getFailureCount() + 1);
+                    continue;
+                }
+                try {
+                    jdbc.update("MERGE INTO hr_employee "
+                                    + "(employee_no, name, mobile, email, employment_status, "
+                                    + "employee_type, hire_date) KEY(employee_no) "
+                                    + "VALUES (?, ?, ?, ?, 'PROBATION', 'FULLTIME', ?)",
+                            values.get(0).trim(), values.get(1).trim(),
+                            values.size() > 2 ? values.get(2).trim() : null,
+                            values.size() > 3 ? values.get(3).trim() : null, LocalDate.now());
+                    result.getRows().add(new ImportRow(rowNumber, true, values.get(0).trim(),
+                            "导入成功"));
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                } catch (Exception exception) {
+                    result.getRows().add(new ImportRow(rowNumber, false, values.get(0).trim(),
+                            "导入失败：" + exception.getMessage()));
+                    result.setFailureCount(result.getFailureCount() + 1);
+                }
+            }
+        }
+        return R.ok(result);
+    }
+
+    @GetMapping("/employees/export")
+    public void export(HttpServletResponse response) throws IOException {
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=employees.csv");
+        response.getOutputStream().write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+        try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(
+                response.getOutputStream(), StandardCharsets.UTF_8))) {
+            writer.println("工号,姓名,手机号,邮箱,状态");
+            jdbc.query("SELECT employee_no, name, mobile, email, employment_status "
+                            + "FROM hr_employee ORDER BY id",
+                    (RowCallbackHandler) result -> writer.printf("%s,%s,%s,%s,%s%n",
+                            result.getString("employee_no"), result.getString("name"),
+                            result.getString("mobile"), result.getString("email"),
+                            result.getString("employment_status")));
+        }
+    }
+
+    private HrEmployee toEntity(EmployeeRequest request) {
+        HrEmployee employee = new HrEmployee();
+        employee.setName(request.getName());
+        employee.setGender(request.getGender());
+        employee.setIdCard(request.getIdCard());
+        employee.setMobile(request.getMobile());
+        employee.setEmail(request.getEmail());
+        employee.setDeptId(request.getDeptId());
+        employee.setPositionId(request.getPositionId());
+        employee.setGradeId(request.getGradeId());
+        employee.setEmploymentStatus(request.getEmploymentStatus());
+        employee.setEmployeeType(request.getEmployeeType());
+        employee.setEducation(request.getEducation());
+        employee.setAddress(request.getAddress());
+        employee.setEmergencyContact(request.getEmergencyContact());
+        employee.setRemark(request.getRemark());
+        return employee;
+    }
+
+    private HrContract toContract(ContractRequest request) {
+        HrContract contract = new HrContract();
+        contract.setEmployeeId(request.getEmployeeId());
+        contract.setContractNo(request.getContractNo());
+        contract.setType(request.getType());
+        contract.setStartDate(request.getStartDate());
+        contract.setEndDate(request.getEndDate());
+        contract.setSignDate(request.getSignDate());
+        contract.setStatus(request.getStatus());
+        return contract;
+    }
+
+    private void createUser(HrEmployee employee) {
+        String username = employee.getEmployeeNo();
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user WHERE username = ?",
+                Integer.class, username);
+        if (count != null && count > 0) {
+            return;
+        }
+        jdbc.update("INSERT INTO sys_user (username, password_hash, real_name, employee_id, "
+                        + "status) VALUES (?, ?, ?, ?, 1)",
+                username, PasswordHasher.hash(username.substring(Math.max(0, username.length() - 6))),
+                employee.getName(), employee.getId());
+        Long userId = jdbc.queryForObject("SELECT id FROM sys_user WHERE username = ?",
+                Long.class, username);
+        Long roleId = jdbc.queryForObject("SELECT id FROM sys_role WHERE code = 'EMPLOYEE'",
+                Long.class);
+        jdbc.update("INSERT INTO sys_user_role (user_id, role_id) VALUES (?, ?)",
+                userId, roleId);
+        Integer leader = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM org_dept WHERE leader_employee_id = ?",
+                Integer.class, employee.getId());
+        if (leader != null && leader > 0) {
+            Long managerRoleId = jdbc.queryForObject(
+                    "SELECT id FROM sys_role WHERE code = 'MANAGER'", Long.class);
+            jdbc.update("INSERT INTO sys_user_role (user_id, role_id) "
+                            + "SELECT ?, ? WHERE NOT EXISTS "
+                            + "(SELECT 1 FROM sys_user_role WHERE user_id = ? AND role_id = ?)",
+                    userId, managerRoleId, userId, managerRoleId);
+        }
+    }
+
+    private String nextEmployeeNo() {
+        Integer next = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING(employee_no, 2) AS INT)), 0) + 1 "
+                        + "FROM hr_employee", Integer.class);
+        return String.format("E%06d", next == null ? 1 : next);
+    }
+
+    private static String defaultValue(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private static List<String> parseCsv(String line) {
+        List<String> result = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char current = line.charAt(i);
+            if (current == '"') {
+                if (quoted && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    field.append('"');
+                    i++;
+                } else {
+                    quoted = !quoted;
+                }
+            } else if (current == ',' && !quoted) {
+                result.add(field.toString());
+                field.setLength(0);
+            } else {
+                field.append(current);
+            }
+        }
+        result.add(field.toString());
+        return result;
+    }
 }
