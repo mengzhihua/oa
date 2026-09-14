@@ -8,7 +8,7 @@ export const attendanceApi = {
   overtimes: () => http.get('/attendance/overtimes/mine'),
   patches: () => http.get('/attendance/patches/mine'),
   trips: () => http.get('/attendance/trips/mine'),
-  balance: (params) => http.get('/attendance/balance', { params }),
+  balance: (params) => http.get('/attendance/balances/mine', { params }),
   cancel: (type, id) => http.post(`/attendance/requests/${type}/${id}/cancel`),
   shifts: () => http.get('/attendance/shifts'),
   saveShift: (data) =>
@@ -21,7 +21,7 @@ export const attendanceApi = {
     data.id ? http.put(`/attendance/holidays/${data.id}`, data) : http.post('/attendance/holidays', data),
   deleteHoliday: (id) => http.delete(`/attendance/holidays/${id}`),
   recalc: (params) => http.post('/attendance/daily/recalc', null, { params }),
-  deptDaily: (params) => http.get('/attendance/daily/dept', { params }),
+  deptDaily: (params) => http.get('/attendance/daily/department', { params }),
   monthly: (params) => http.get('/attendance/monthly', { params }),
   generateMonthly: (params) => http.post('/attendance/monthly/generate', null, { params }),
   confirmMonthly: (yearMonth) => http.post(`/attendance/monthly/${yearMonth}/confirm`),

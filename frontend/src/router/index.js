@@ -12,6 +12,14 @@ import Employees from '../views/hr/Employees.vue'
 import EmployeeDetail from '../views/hr/EmployeeDetail.vue'
 import Contracts from '../views/hr/Contracts.vue'
 import Changes from '../views/hr/Changes.vue'
+import MyAttendance from '../views/attendance/MyAttendance.vue'
+import MyRequests from '../views/attendance/MyRequests.vue'
+import LeaveBalance from '../views/attendance/LeaveBalance.vue'
+import Shifts from '../views/attendance/Shifts.vue'
+import Schedules from '../views/attendance/Schedules.vue'
+import Holidays from '../views/attendance/Holidays.vue'
+import DeptDaily from '../views/attendance/DeptDaily.vue'
+import Monthly from '../views/attendance/Monthly.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -38,18 +46,15 @@ const routes = [
         meta: { title: '合同管理' },
       },
       { path: 'hr/changes', component: Changes, meta: { title: '人事异动' } },
-      {
-        path: 'attendance',
-        component: ModuleView,
-        props: { module: 'attendance' },
-        meta: { title: '我的考勤' },
-      },
-      {
-        path: 'attendance/manage',
-        component: ModuleView,
-        props: { module: 'attendanceManage' },
-        meta: { title: '考勤管理' },
-      },
+      { path: 'attendance', redirect: '/attendance/mine' },
+      { path: 'attendance/mine', component: MyAttendance, meta: { title: '我的考勤' } },
+      { path: 'attendance/requests', component: MyRequests, meta: { title: '我的申请' } },
+      { path: 'attendance/balance', component: LeaveBalance, meta: { title: '年假余额' } },
+      { path: 'attendance/shifts', component: Shifts, meta: { title: '班次管理' } },
+      { path: 'attendance/schedules', component: Schedules, meta: { title: '排班管理' } },
+      { path: 'attendance/holidays', component: Holidays, meta: { title: '节假日' } },
+      { path: 'attendance/dept-daily', component: DeptDaily, meta: { title: '部门日报' } },
+      { path: 'attendance/monthly', component: Monthly, meta: { title: '月度汇总' } },
       { path: 'workflow', component: ModuleView, props: { module: 'workflow' }, meta: { title: '审批中心' } },
       { path: 'payroll', component: ModuleView, props: { module: 'payroll' }, meta: { title: '工资管理' } },
       { path: 'collab', component: ModuleView, props: { module: 'collab' }, meta: { title: '协同办公' } },
