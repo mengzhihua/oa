@@ -34,11 +34,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import javax.servlet.http.HttpServletResponse;
 
 import javax.validation.Valid;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import com.oa.payroll.vo.PayrollCostRow;
 
 @Validated
 @RestController
@@ -214,6 +217,42 @@ public class PayrollController {
             slipService.updateById(slip);
         }
         return R.ok(slips);
+    }
+
+    @GetMapping("/periods/{id}/export")
+    public void export(@PathVariable Long id, HttpServletResponse response) throws Exception {
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=payroll-" + id + ".csv");
+        StringBuilder csv = new StringBuilder("\uFEFF员工ID,部门ID,应发,应税收入,个税,"
+                + "个人社保,个人公积金,实发,状态\n");
+        for (PaySlip slip : slipService.lambdaQuery().eq(PaySlip::getPeriodId, id)
+                .orderByAsc(PaySlip::getEmployeeId).list()) {
+            csv.append(slip.getEmployeeId()).append(',').append(slip.getDeptId()).append(',')
+                    .append(slip.getGross()).append(',').append(slip.getTaxableIncome()).append(',')
+                    .append(slip.getTax()).append(',').append(slip.getSiPersonal()).append(',')
+                    .append(slip.getHfPersonal()).append(',').append(slip.getNet()).append(',')
+                    .append(slip.getStatus()).append('\n');
+        }
+        response.getWriter().write(csv.toString());
+    }
+
+    @GetMapping("/reports/cost")
+    public R<List<PayrollCostRow>> cost(@RequestParam int year) {
+        return R.ok(jdbc.query("SELECT p.year_month, s.dept_id, SUM(s.gross) gross, "
+                        + "SUM(s.si_company) + SUM(s.hf_company) company_insurance, "
+                        + "SUM(s.gross) + SUM(s.si_company) + SUM(s.hf_company) total_cost "
+                        + "FROM pay_slip s JOIN pay_period p ON p.id = s.period_id "
+                        + "WHERE p.year_month LIKE ? GROUP BY p.year_month, s.dept_id "
+                        + "ORDER BY p.year_month, s.dept_id",
+                new Object[]{year + "-%"}, (result, rowNum) -> {
+                    PayrollCostRow row = new PayrollCostRow();
+                    row.setYearMonth(result.getString("year_month"));
+                    row.setDeptId(result.getObject("dept_id", Long.class));
+                    row.setGross(result.getBigDecimal("gross"));
+                    row.setCompanyInsurance(result.getBigDecimal("company_insurance"));
+                    row.setTotalCost(result.getBigDecimal("total_cost"));
+                    return row;
+                }));
     }
 
     private Long employeeId() {

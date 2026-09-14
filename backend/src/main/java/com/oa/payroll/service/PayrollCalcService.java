@@ -2,6 +2,8 @@ package com.oa.payroll.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.common.BizException;
+import com.oa.collab.entity.OaMessage;
+import com.oa.collab.service.OaMessageService;
 import com.oa.payroll.entity.PayInsuranceRule;
 import com.oa.payroll.entity.PayPeriod;
 import com.oa.payroll.entity.PayScheme;
@@ -30,6 +32,7 @@ public class PayrollCalcService {
     private final PayTaxBracketService bracketService;
     private final PayAdjustmentService adjustmentService;
     private final ObjectMapper objectMapper;
+    private final OaMessageService messageService;
 
     public PayrollCalcService(JdbcTemplate jdbc,
                               PayPeriodService periodService,
@@ -38,7 +41,8 @@ public class PayrollCalcService {
                               PayInsuranceRuleService insuranceService,
                               PayTaxBracketService bracketService,
                               PayAdjustmentService adjustmentService,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              OaMessageService messageService) {
         this.jdbc = jdbc;
         this.periodService = periodService;
         this.schemeService = schemeService;
@@ -47,6 +51,7 @@ public class PayrollCalcService {
         this.bracketService = bracketService;
         this.adjustmentService = adjustmentService;
         this.objectMapper = objectMapper;
+        this.messageService = messageService;
     }
 
     @Transactional
@@ -208,6 +213,21 @@ public class PayrollCalcService {
         period.setPaidAt(java.time.LocalDateTime.now());
         periodService.updateById(period);
         jdbc.update("UPDATE pay_slip SET status = 'PAID' WHERE period_id = ?", periodId);
+        List<Long> employees = jdbc.query("SELECT employee_id FROM pay_slip WHERE period_id = ?",
+                new Object[]{periodId}, (result, rowNum) -> result.getLong(1));
+        for (Long employeeId : employees) {
+            Long userId = jdbc.queryForObject(
+                    "SELECT id FROM sys_user WHERE employee_id = ?", Long.class, employeeId);
+            if (userId != null) {
+                OaMessage message = new OaMessage();
+                message.setToUserId(userId);
+                message.setType("SYSTEM");
+                message.setTitle("工资单已发放");
+                message.setContent("工资期间 " + period.getYearMonth() + " 的工资单已发放");
+                message.setLink("/payroll/slips/mine");
+                messageService.save(message);
+            }
+        }
     }
 
     public void close(Long periodId) {
@@ -231,7 +251,7 @@ public class PayrollCalcService {
         Map<String, Object> row = jdbc.queryForMap(
                 "SELECT rate, quick_deduction FROM pay_tax_bracket "
                         + "WHERE lower_bound <= ? AND (upper_bound IS NULL OR upper_bound >= ?)"
-                        + " ORDER BY level_no LIMIT 1", taxable, taxable);
+                        + " ORDER BY level_no DESC LIMIT 1", taxable, taxable);
         return taxable.multiply(new BigDecimal(String.valueOf(row.get("RATE"))))
                 .subtract(new BigDecimal(String.valueOf(row.get("QUICK_DEDUCTION"))));
     }

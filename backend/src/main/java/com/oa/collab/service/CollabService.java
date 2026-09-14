@@ -3,6 +3,7 @@ package com.oa.collab.service;
 import com.oa.collab.dto.ExpenseRequest;
 import com.oa.collab.dto.MeetingBookingRequest;
 import com.oa.collab.dto.NoticeRequest;
+import com.oa.collab.dto.ScheduleRequest;
 import com.oa.collab.entity.OaExpense;
 import com.oa.collab.entity.OaMeetingBooking;
 import com.oa.collab.entity.OaMessage;
@@ -67,6 +68,58 @@ public class CollabService {
         notice.setStatus("PUBLISHED");
         notice.setPublishedAt(LocalDateTime.now());
         noticeService.updateById(notice);
+        List<Long> users = jdbc.query("SELECT id FROM sys_user WHERE status = 1",
+                (result, rowNum) -> result.getLong(1));
+        for (Long userId : users) {
+            OaMessage message = new OaMessage();
+            message.setToUserId(userId);
+            message.setType("NOTICE");
+            message.setTitle("新公告：" + notice.getTitle());
+            message.setContent(notice.getContent());
+            message.setLink("/notices/" + notice.getId());
+            messageService.save(message);
+        }
+    }
+
+    public OaNotice updateNotice(Long id, NoticeRequest request) {
+        OaNotice notice = noticeService.getById(id);
+        if (notice == null) {
+            throw new BizException("公告不存在");
+        }
+        notice.setTitle(request.getTitle());
+        notice.setContent(request.getContent());
+        notice.setType(request.getType());
+        notice.setDeptId(request.getDeptId());
+        notice.setPinned(request.getPinned());
+        noticeService.updateById(notice);
+        return notice;
+    }
+
+    public void revokeNotice(Long id) {
+        OaNotice notice = noticeService.getById(id);
+        if (notice == null) {
+            throw new BizException("公告不存在");
+        }
+        notice.setStatus("REVOKED");
+        noticeService.updateById(notice);
+    }
+
+    public com.oa.collab.entity.OaSchedule createSchedule(Long userId, ScheduleRequest request) {
+        com.oa.collab.entity.OaSchedule schedule = new com.oa.collab.entity.OaSchedule();
+        schedule.setUserId(userId);
+        schedule.setTitle(request.getTitle());
+        schedule.setStartTime(request.getStartTime());
+        schedule.setEndTime(request.getEndTime());
+        schedule.setLocation(request.getLocation());
+        schedule.setParticipantsJson(request.getParticipantsJson());
+        schedule.setRemindMinutes(request.getRemindMinutes());
+        jdbc.update("INSERT INTO oa_schedule (user_id, title, start_time, end_time, "
+                        + "location, participants_json, remind_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                userId, request.getTitle(), request.getStartTime(), request.getEndTime(),
+                request.getLocation(), request.getParticipantsJson(), request.getRemindMinutes());
+        schedule.setId(jdbc.queryForObject("SELECT MAX(id) FROM oa_schedule WHERE user_id = ?",
+                Long.class, userId));
+        return schedule;
     }
 
     public List<OaNotice> mineNotices(Long userId) {

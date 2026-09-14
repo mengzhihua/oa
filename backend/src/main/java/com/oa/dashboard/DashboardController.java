@@ -50,6 +50,16 @@ public class DashboardController {
         view.setLatestNotices(collabService.mineNotices(userId).stream().limit(5)
                 .collect(java.util.stream.Collectors.toList()));
         view.setTodaySchedules(Collections.emptyList());
+        if (CurrentUser.roles().contains("HR") || CurrentUser.roles().contains("ADMIN")) {
+            fillHr(view);
+        }
+        if (CurrentUser.roles().contains("FINANCE")) {
+            fillFinance(view);
+        }
+        return R.ok(view);
+    }
+
+    private void fillHr(DashboardView view) {
         view.setActiveEmployees(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM hr_employee WHERE employment_status IN ('PROBATION', 'REGULAR')",
                 Long.class));
@@ -59,7 +69,24 @@ public class DashboardController {
                 YearMonth.now().atDay(1)));
         view.setAbnormalClocks(count("SELECT COUNT(*) FROM att_daily WHERE work_date = ? "
                 + "AND status IN ('LATE', 'EARLY', 'ABSENT')", LocalDate.now()));
-        return R.ok(view);
+        Long should = jdbc.queryForObject("SELECT COUNT(*) FROM att_daily WHERE work_date = ?",
+                Long.class, LocalDate.now());
+        Long actual = jdbc.queryForObject("SELECT COUNT(*) FROM att_daily WHERE work_date = ? "
+                + "AND status IN ('NORMAL', 'LATE', 'EARLY', 'PATCHED')",
+                Long.class, LocalDate.now());
+        view.setAttendanceRate(should == null || should == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(actual == null ? 0 : actual)
+                .divide(BigDecimal.valueOf(should), 4, java.math.RoundingMode.HALF_UP));
+    }
+
+    private void fillFinance(DashboardView view) {
+        view.setPayrollStatus(jdbc.queryForObject(
+                "SELECT status FROM pay_period ORDER BY year_month DESC LIMIT 1", String.class));
+        view.setPayrollCost(jdbc.queryForObject(
+                "SELECT COALESCE(total_gross, 0) + COALESCE("
+                        + "(SELECT SUM(si_company + hf_company) FROM pay_slip "
+                        + "WHERE period_id = p.id), 0) FROM pay_period p "
+                        + "ORDER BY year_month DESC LIMIT 1", BigDecimal.class));
     }
 
     private long count(String sql, Object... args) {

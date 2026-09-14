@@ -24,6 +24,17 @@ public class AccessPolicy {
             return roles.contains("MANAGER") || roles.contains("HR")
                     || roles.contains("FINANCE");
         }
+        if (path.startsWith("/api/payroll/periods/") && path.endsWith("/approve")
+                || path.startsWith("/api/payroll/periods/") && path.endsWith("/pay")) {
+            return roles.contains("FINANCE");
+        }
+        if (path.startsWith("/api/payroll/")) {
+            return roles.contains("HR") || roles.contains("FINANCE");
+        }
+        if (path.startsWith("/api/attendance/")) {
+            return roles.contains("HR") || roles.contains("MANAGER")
+                    || roles.contains("EMPLOYEE");
+        }
         return true;
     }
 }
