@@ -1,0 +1,16 @@
+package com.oa.system.controller;
+import com.oa.common.*;import com.oa.system.auth.*;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.web.bind.annotation.*;import java.util.*;
+@RestController @RequestMapping("/api/system")
+public class SystemController {
+ private final JdbcTemplate jdbc; public SystemController(JdbcTemplate j){jdbc=j;}
+ @GetMapping("/users") public R<PageResult<Map<String,Object>>> users(@RequestParam(defaultValue="1")long page,@RequestParam(defaultValue="20")long size,@RequestParam(required=false)String keyword){String k=keyword==null?"%":"%"+keyword+"%";List<Map<String,Object>> rs=jdbc.queryForList("SELECT id,username,real_name,employee_id,status,last_login_at FROM sys_user WHERE username LIKE ? OR real_name LIKE ? ORDER BY id",k,k);return R.ok(new PageResult<Map<String,Object>>(rs.size(),page,size,rs.subList((int)Math.min((page-1)*size,rs.size()),(int)Math.min(page*size,rs.size()))));}
+ @RequestMapping(value="/users",method={RequestMethod.POST,RequestMethod.PUT}) public R<Void> saveUser(@RequestBody Map<String,Object> b){Long id=b.get("id")==null?null:Long.valueOf(String.valueOf(b.get("id")));if(id==null)jdbc.update("INSERT INTO sys_user(username,password_hash,real_name,status) VALUES(?,?,?,1)",b.get("username"),PasswordHasher.hash(String.valueOf(b.getOrDefault("password","123456"))),b.get("realName"));else jdbc.update("UPDATE sys_user SET real_name=?,status=? WHERE id=?",b.get("realName"),b.getOrDefault("status",1),id);return R.ok();}
+ @DeleteMapping("/users/{id}") public R<Void> del(@PathVariable Long id){jdbc.update("UPDATE sys_user SET status=0 WHERE id=?",id);return R.ok();}
+ @PostMapping("/users/{id}/reset-password") public R<Void> reset(@PathVariable Long id,@RequestBody(required=false)Map<String,String>b){jdbc.update("UPDATE sys_user SET password_hash=? WHERE id=?",PasswordHasher.hash(b==null?"123456":b.getOrDefault("password","123456")),id);return R.ok();}
+ @GetMapping("/roles") public R<List<Map<String,Object>>> roles(){return R.ok(jdbc.queryForList("SELECT * FROM sys_role ORDER BY id"));}
+ @RequestMapping(value="/roles",method={RequestMethod.POST,RequestMethod.PUT}) public R<Void> role(@RequestBody Map<String,Object>b){if(b.get("id")==null)jdbc.update("INSERT INTO sys_role(code,name) VALUES(?,?)",b.get("code"),b.get("name"));else jdbc.update("UPDATE sys_role SET name=? WHERE id=?",b.get("name"),b.get("id"));return R.ok();}
+ @DeleteMapping("/roles/{id}")public R<Void> roleDel(@PathVariable Long id){jdbc.update("DELETE FROM sys_role WHERE id=?",id);return R.ok();}
+ @GetMapping("/menus")public R<List<Map<String,Object>>> menus(){return R.ok(jdbc.queryForList("SELECT * FROM sys_menu ORDER BY parent_id,sort,id"));}
+ @GetMapping("/dicts")public R<List<Map<String,Object>>> dicts(@RequestParam(required=false)String type){return R.ok(type==null?jdbc.queryForList("SELECT * FROM sys_dict ORDER BY sort"):jdbc.queryForList("SELECT * FROM sys_dict WHERE type=? ORDER BY sort",type));}
+ @GetMapping("/oplogs")public R<PageResult<Map<String,Object>>> logs(@RequestParam(defaultValue="1")long page,@RequestParam(defaultValue="20")long size){List<Map<String,Object>>rs=jdbc.queryForList("SELECT * FROM sys_op_log ORDER BY id DESC");return R.ok(new PageResult<Map<String,Object>>(rs.size(),page,size,rs));}
+}
