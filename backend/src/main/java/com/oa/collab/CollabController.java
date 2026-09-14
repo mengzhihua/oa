@@ -129,6 +129,11 @@ public class CollabController {
         return R.ok(collabService.bookMeeting(CurrentUser.id(), request));
     }
 
+    @GetMapping("/meetings/bookings")
+    public R<List<OaMeetingBooking>> bookings() {
+        return R.ok(collabService.bookings(CurrentUser.id()));
+    }
+
     @PostMapping("/meetings/bookings/{id}/cancel")
     public R<Void> cancelMeeting(@PathVariable Long id) {
         OaMeetingBooking booking = bookingService.getById(id);
@@ -184,6 +189,11 @@ public class CollabController {
     @PostMapping("/expenses")
     public R<?> expense(@Valid @RequestBody ExpenseRequest request) {
         return R.ok(collabService.submitExpense(CurrentUser.id(), request));
+    }
+
+    @GetMapping("/expenses/mine")
+    public R<List<OaExpense>> expenses() {
+        return R.ok(collabService.expenses(CurrentUser.id()));
     }
 
     @PostMapping("/expenses/{id}/pay")

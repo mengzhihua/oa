@@ -205,6 +205,20 @@ public class CollabService {
                 .orderByDesc(OaMessage::getId).list();
     }
 
+    public List<OaMeetingBooking> bookings(Long userId) {
+        return bookingService.lambdaQuery()
+                .eq(OaMeetingBooking::getOrganizer, userId)
+                .orderByDesc(OaMeetingBooking::getStartTime)
+                .list();
+    }
+
+    public List<OaExpense> expenses(Long userId) {
+        return expenseService.lambdaQuery()
+                .eq(OaExpense::getApplicantId, userId)
+                .orderByDesc(OaExpense::getId)
+                .list();
+    }
+
     public long unreadCount(Long userId) {
         return messageService.lambdaQuery().eq(OaMessage::getToUserId, userId)
                 .isNull(OaMessage::getReadAt).count();

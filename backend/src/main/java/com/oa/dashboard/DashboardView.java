@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class DashboardView {
@@ -22,6 +23,7 @@ public class DashboardView {
     private Long contractsDue;
     private BigDecimal attendanceRate;
     private Long abnormalClocks;
+    private Map<String, Long> departmentCounts;
     private String payrollStatus;
     private BigDecimal payrollCost;
 }

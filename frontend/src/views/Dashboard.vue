@@ -60,6 +60,17 @@
           v-if="isHr"
           class="bar-list"
         >
+          <div
+            v-for="(count, name) in view.departmentCounts || {}"
+            :key="name"
+            class="bar-row"
+          >
+            <span>{{ name }}</span
+            ><el-progress
+              :percentage="Math.min(100, (count / Math.max(view.activeEmployees || 1, 1)) * 100)"
+              :format="() => String(count)"
+            /><b>{{ count }}</b>
+          </div>
           <div class="bar-row">
             <span>在职人数</span
             ><el-progress
@@ -108,15 +119,15 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Timer } from '@element-plus/icons-vue'
 import { attendanceApi, dashboardApi } from '../api'
-import { auth } from '../auth'
+import { hasRole } from '../auth'
 import PageShell from '../components/PageShell.vue'
 import StatusTag from '../components/StatusTag.vue'
 
 const router = useRouter()
 const view = ref({})
 const clocking = ref(false)
-const isHr = computed(() => (auth.me?.roles || []).some((role) => ['ADMIN', 'HR'].includes(role.code)))
-const isFinance = computed(() => (auth.me?.roles || []).some((role) => role.code === 'FINANCE'))
+const isHr = computed(() => hasRole('ADMIN', 'HR'))
+const isFinance = computed(() => hasRole('FINANCE'))
 const metrics = computed(() => [
   { label: '我的待办', value: view.value.pendingTasks || 0, hint: '需要及时处理的审批' },
   { label: '申请中', value: view.value.runningApplications || 0, hint: '正在流转的申请' },

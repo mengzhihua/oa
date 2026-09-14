@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -69,6 +71,20 @@ public class DashboardController {
                 YearMonth.now().atDay(1)));
         view.setAbnormalClocks(count("SELECT COUNT(*) FROM att_daily WHERE work_date = ? "
                 + "AND status IN ('LATE', 'EARLY', 'ABSENT')", LocalDate.now()));
+        view.setProbationDue(count("SELECT COUNT(*) FROM hr_employee WHERE employment_status = 'PROBATION' "
+                + "AND hire_date <= ?", LocalDate.now().plusDays(30)));
+        view.setContractsDue(count("SELECT COUNT(*) FROM hr_contract WHERE status = 'ACTIVE' "
+                + "AND end_date >= ? AND end_date <= ?", LocalDate.now(), LocalDate.now().plusDays(30)));
+        Map<String, Long> departments = new LinkedHashMap<>();
+        for (Map<String, Object> row : jdbc.queryForList(
+                "SELECT d.name, COUNT(e.id) AS employee_count FROM org_dept d "
+                        + "LEFT JOIN hr_employee e ON e.dept_id = d.id "
+                        + "AND e.employment_status IN ('PROBATION', 'REGULAR') "
+                        + "GROUP BY d.id, d.name ORDER BY d.sort")) {
+            departments.put(String.valueOf(row.get("NAME")),
+                    ((Number) row.get("EMPLOYEE_COUNT")).longValue());
+        }
+        view.setDepartmentCounts(departments);
         Long should = jdbc.queryForObject("SELECT COUNT(*) FROM att_daily WHERE work_date = ?",
                 Long.class, LocalDate.now());
         Long actual = jdbc.queryForObject("SELECT COUNT(*) FROM att_daily WHERE work_date = ? "
