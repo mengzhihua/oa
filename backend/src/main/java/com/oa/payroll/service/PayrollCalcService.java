@@ -216,9 +216,10 @@ public class PayrollCalcService {
         List<Long> employees = jdbc.query("SELECT employee_id FROM pay_slip WHERE period_id = ?",
                 new Object[]{periodId}, (result, rowNum) -> result.getLong(1));
         for (Long employeeId : employees) {
-            Long userId = jdbc.queryForObject(
-                    "SELECT id FROM sys_user WHERE employee_id = ?", Long.class, employeeId);
-            if (userId != null) {
+            List<Long> userIds = jdbc.query("SELECT id FROM sys_user WHERE employee_id = ?",
+                    new Object[]{employeeId},
+                    (result, rowNum) -> result.getLong(1));
+            for (Long userId : userIds) {
                 OaMessage message = new OaMessage();
                 message.setToUserId(userId);
                 message.setType("SYSTEM");
