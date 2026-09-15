@@ -3,7 +3,12 @@ package com.oa.system.service;
 import com.oa.system.auth.PasswordHasher;
 import com.oa.payroll.service.PayrollCalcService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -17,27 +22,75 @@ public class StartupService {
     private final String adminPassword;
     private final PayrollCalcService payrollCalcService;
     private final boolean demoSeed;
+    private final ResourceLoader resourceLoader;
+    private final String demoDataLocation;
 
     public StartupService(JdbcTemplate jdbc,
                           @Value("${oa.auth.admin-password:admin123}") String adminPassword,
                           PayrollCalcService payrollCalcService,
-                          @Value("${oa.demo.seed:true}") boolean demoSeed) {
+                          @Value("${oa.demo.seed:true}") boolean demoSeed,
+                          ResourceLoader resourceLoader,
+                          @Value("${oa.demo.data-location:classpath:demo-data.sql}")
+                          String demoDataLocation) {
         this.jdbc = jdbc;
         this.adminPassword = adminPassword;
         this.payrollCalcService = payrollCalcService;
         this.demoSeed = demoSeed;
+        this.resourceLoader = resourceLoader;
+        this.demoDataLocation = demoDataLocation;
     }
 
     @PostConstruct
     public void init() {
+        ensureAdmin();
         if (!demoSeed) {
             return;
+        }
+        if (!demoDataExists()) {
+            executeDemoData();
         }
         ensureUsers();
         ensureClientSecrets();
         ensureDepartments();
         ensureWorkflowNodes();
         ensureDemoPayroll();
+    }
+
+    private void ensureAdmin() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sys_user WHERE username = 'admin'", Integer.class);
+        if (count == null || count == 0) {
+            jdbc.update("INSERT INTO sys_user "
+                            + "(username, password_hash, real_name, employee_id, status) "
+                            + "VALUES (?, ?, ?, ?, 1)",
+                    "admin", PasswordHasher.hash(adminPassword), "系统管理员", null);
+        }
+        Long userId = jdbc.queryForObject(
+                "SELECT id FROM sys_user WHERE username = 'admin'", Long.class);
+        Long roleId = jdbc.queryForObject(
+                "SELECT id FROM sys_role WHERE code = 'ADMIN'", Long.class);
+        Integer relationCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sys_user_role WHERE user_id = ? AND role_id = ?",
+                Integer.class, userId, roleId);
+        if (relationCount == null || relationCount == 0) {
+            jdbc.update("INSERT INTO sys_user_role (user_id, role_id) VALUES (?, ?)",
+                    userId, roleId);
+        }
+    }
+
+    private boolean demoDataExists() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM hr_employee WHERE employee_no = 'E000001'",
+                Integer.class);
+        return count != null && count > 0;
+    }
+
+    private void executeDemoData() {
+        Resource resource = resourceLoader.getResource(demoDataLocation);
+        jdbc.execute((ConnectionCallback<Void>) connection -> {
+            ScriptUtils.executeSqlScript(connection, new EncodedResource(resource));
+            return null;
+        });
     }
 
     private void ensureUsers() {

@@ -13,6 +13,9 @@
         ></el-form
       ><el-table :data="rows"
         ><el-table-column
+          prop="yearMonth"
+          label="期间"
+        /><el-table-column
           prop="employeeId"
           label="员工"
         /><el-table-column label="应发"

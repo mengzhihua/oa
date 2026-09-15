@@ -21,10 +21,10 @@
           prop="method"
           label="方法"
         /><el-table-column
-          prop="uri"
+          prop="path"
           label="接口"
         /><el-table-column
-          prop="success"
+          prop="responseBody"
           label="结果"
         /><el-table-column label="时间"
           ><template #default="{ row }">{{ fmtDateTime(row.createdAt) }}</template></el-table-column

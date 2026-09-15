@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS sys_menu (
     path VARCHAR(255),
     parent_id BIGINT,
     sort INT DEFAULT 0,
-    icon VARCHAR(64)
+    icon VARCHAR(64),
+    type VARCHAR(32) DEFAULT 'MENU',
+    status INT DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS sys_role_menu (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

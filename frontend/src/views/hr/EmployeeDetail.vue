@@ -67,7 +67,7 @@ const contracts = ref([])
 const changes = ref([])
 onMounted(async () => {
   employee.value = await hrApi.employee(route.params.id)
-  contracts.value = (await hrApi.contracts()).filter((row) => row.employeeId === Number(route.params.id))
+  contracts.value = await hrApi.employeeContracts(route.params.id)
   changes.value = (await hrApi.changes({ employeeId: route.params.id })).records || []
 })
 </script>

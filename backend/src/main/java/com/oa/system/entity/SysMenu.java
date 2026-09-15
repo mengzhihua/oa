@@ -13,4 +13,6 @@ public class SysMenu extends BaseEntity {
     private Long parentId;
     private Integer sort;
     private String icon;
+    private String type;
+    private Integer status;
 }

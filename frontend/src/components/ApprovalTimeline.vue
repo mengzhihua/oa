@@ -6,7 +6,11 @@
       :timestamp="task.handledAt ? fmtDateTime(task.handledAt) : '待处理'"
     >
       <strong>{{ task.nodeName || `第 ${task.nodeSeq || '-'} 节点` }}</strong>
-      <div>审批人：{{ task.approverName || task.assigneeName || '待指定' }}</div>
+      <div>
+        审批人：{{
+          task.approverName || task.assigneeName || (task.status === 'PENDING' ? '待指定' : '系统处理')
+        }}
+      </div>
       <div><StatusTag :value="task.status" /></div>
       <div class="timeline-comment">意见：{{ task.comment || task.opinion || '暂无意见' }}</div>
     </el-timeline-item>

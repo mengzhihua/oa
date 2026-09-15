@@ -20,6 +20,7 @@ const labels = {
   CLOSED: '已关闭',
   REJECTED: '已驳回',
   CANCELED: '已撤回',
+  CANCELLED: '已取消',
   CALCULATED: '已计算',
   LOCKED: '已锁定',
   NORMAL: '正常',
@@ -34,6 +35,8 @@ const labels = {
   LEAVING: '离职中',
   PROBATION: '试用期',
   REGULAR: '正式',
+  LEFT: '离职',
+  BOOKED: '已预约',
   IN: '上班',
   OUT: '下班',
   TRIP: '出差',
@@ -66,7 +69,8 @@ const type = computed(() => {
     )
   )
     return 'success'
-  if (['REJECTED', 'ABSENT', 'MISSING', 'REVOKED', 'LEAVING', 'INACTIVE'].includes(props.value)) return 'danger'
+  if (['REJECTED', 'ABSENT', 'MISSING', 'REVOKED', 'LEAVING', 'INACTIVE'].includes(props.value))
+    return 'danger'
   if (['PENDING', 'RUNNING', 'OPEN', 'CALCULATED', 'LATE', 'EARLY', 'PROBATION'].includes(props.value))
     return 'warning'
   return 'info'

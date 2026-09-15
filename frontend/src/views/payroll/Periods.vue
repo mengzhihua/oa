@@ -32,11 +32,18 @@
           title="已发放" /><el-step title="已关闭"
       /></el-steps>
       <div class="flow-actions">
-        <el-button
+        <el-tooltip
           v-if="selectedPeriod.status === 'OPEN'"
-          type="primary"
-          @click="action('calculate', selectedPeriod)"
-          >计算</el-button
+          content="请先锁定该月考勤"
+          placement="top"
+          ><span
+            ><el-button
+              type="primary"
+              :disabled="selectedPeriod.attLocked !== 1"
+              @click="action('calculate', selectedPeriod)"
+              >计算</el-button
+            ></span
+          ></el-tooltip
         ><el-button
           v-if="selectedPeriod.status === 'CALCULATED' && canWrite('ADMIN', 'FINANCE')"
           type="primary"

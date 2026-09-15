@@ -4,6 +4,10 @@
     code="CO-MEETING"
     ><template #actions
       ><el-button
+        v-if="canWrite('ADMIN', 'HR')"
+        @click="roomVisible = true"
+        >新增会议室</el-button
+      ><el-button
         type="primary"
         @click="visible = true"
         >新建预约</el-button
@@ -47,6 +51,27 @@
         ></el-table
       ></el-card
     ><el-dialog
+      v-model="roomVisible"
+      title="新增会议室"
+      ><el-form
+        :model="roomForm"
+        label-width="80px"
+        ><el-form-item label="名称"><el-input v-model="roomForm.name" /></el-form-item
+        ><el-form-item label="地点"><el-input v-model="roomForm.location" /></el-form-item
+        ><el-form-item label="容量"
+          ><el-input-number
+            v-model="roomForm.capacity"
+            :min="1" /></el-form-item
+        ><el-form-item label="设备"><el-input v-model="roomForm.equipment" /></el-form-item></el-form
+      ><template #footer
+        ><el-button @click="roomVisible = false">取消</el-button
+        ><el-button
+          type="primary"
+          @click="saveRoom"
+          >保存</el-button
+        ></template
+      ></el-dialog
+    ><el-dialog
       v-model="visible"
       title="新建预约"
       ><el-form
@@ -89,13 +114,16 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { collabApi } from '../../api/collab'
+import { canWrite } from '../../auth'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'
 import { fmtDateTime } from '../../utils/format'
 const rooms = ref([])
 const bookings = ref([])
 const visible = ref(false)
+const roomVisible = ref(false)
 const form = reactive({})
+const roomForm = reactive({ name: '', location: '', capacity: 10, equipment: '', status: 'ACTIVE' })
 async function load() {
   rooms.value = await collabApi.rooms()
   bookings.value = await collabApi.bookings({})
@@ -104,6 +132,12 @@ async function save() {
   await collabApi.createBooking({ ...form, attendees: form.attendees?.split(',').map(Number) })
   visible.value = false
   ElMessage.success('预约成功')
+  await load()
+}
+async function saveRoom() {
+  await collabApi.createRoom(roomForm)
+  roomVisible.value = false
+  ElMessage.success('会议室已新增')
   await load()
 }
 async function cancel(row) {

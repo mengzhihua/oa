@@ -27,6 +27,8 @@ http.interceptors.response.use(
     if (error.response?.status === 401) {
       clearAuth()
       ElMessage.warning('登录已过期')
+    } else if (error.response?.status === 403) {
+      ElMessage.error('无权访问')
     } else {
       ElMessage.error(error.response?.data?.msg || error.message || '网络错误')
     }

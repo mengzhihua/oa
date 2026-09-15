@@ -108,6 +108,30 @@
           <span>本月请假</span><strong>{{ view.monthLeaveDays || 0 }} 天</strong>
         </div>
       </div>
+      <div class="panel">
+        <div class="panel-title">今日日程</div>
+        <div
+          v-if="view.todaySchedules?.length"
+          class="schedule-list"
+        >
+          <div
+            v-for="item in view.todaySchedules"
+            :key="`${item.title}-${item.start_time || item.startTime}`"
+          >
+            <strong>{{ item.title }}</strong>
+            <span
+              >{{ fmtDateTime(item.start_time || item.startTime) }} ·
+              {{ item.location || '未设置地点' }}</span
+            >
+          </div>
+        </div>
+        <div
+          v-else
+          class="empty"
+        >
+          今日暂无日程
+        </div>
+      </div>
     </div>
   </PageShell>
 </template>

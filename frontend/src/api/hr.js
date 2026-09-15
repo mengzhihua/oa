@@ -9,6 +9,7 @@ export const hrApi = {
   transfer: (id, data) => http.post(`/hr/employees/${id}/transfer`, data),
   leave: (id, data) => http.post(`/hr/employees/${id}/leave`, data),
   contracts: () => http.get('/hr/contracts'),
+  employeeContracts: (id) => http.get(`/hr/contracts/employee/${id}`),
   createContract: (data) => http.post('/hr/contracts', data),
   updateContract: (id, data) => http.put(`/hr/contracts/${id}`, data),
   expiringContracts: () => http.get('/hr/contracts/expiring'),

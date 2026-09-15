@@ -21,7 +21,9 @@
           label="排序" /><el-table-column label="状态"
           ><template #default="{ row }"
             ><StatusTag
-              :value="row.status ? 'ACTIVE' : 'INACTIVE'" /></template></el-table-column></el-table></el-card
+              :value="
+                Number(row.status) === 1 ? 'ACTIVE' : 'INACTIVE'
+              " /></template></el-table-column></el-table></el-card
   ></PageShell>
 </template>
 <script setup>

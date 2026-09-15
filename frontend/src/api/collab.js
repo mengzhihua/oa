@@ -2,6 +2,7 @@ import http from './request'
 
 export const collabApi = {
   notices: () => http.get('/notices/mine'),
+  adminNotices: (params) => http.get('/notices', { params }),
   createNotice: (data) => http.post('/notices', data),
   updateNotice: (id, data) => http.put(`/notices/${id}`, data),
   publishNotice: (id) => http.post(`/notices/${id}/publish`),

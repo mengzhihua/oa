@@ -14,7 +14,7 @@
         >确认</el-button
       ><el-button
         type="warning"
-        :disabled="!canConfirm"
+        :disabled="!canLock"
         @click="lock"
         >锁定</el-button
       ><el-button @click="exportCsv">导出 CSV</el-button></template
@@ -57,6 +57,12 @@ const yearMonth = ref(new Date().toISOString().slice(0, 7))
 const deptId = ref()
 const rows = ref([])
 const canConfirm = computed(() => rows.value.length > 0 && rows.value.every((row) => row.status === 'DRAFT'))
+const canLock = computed(
+  () =>
+    rows.value.length > 0 &&
+    rows.value.some((row) => row.status !== 'LOCKED') &&
+    rows.value.every((row) => row.status === 'DRAFT' || row.status === 'CONFIRMED'),
+)
 async function load() {
   const data = await attendanceApi.monthly({
     page: 1,
