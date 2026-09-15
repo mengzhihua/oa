@@ -244,7 +244,10 @@ rm -rf backend/data
 时执行 `demo-data.sql`；关闭后仍保留系统基础表、角色、菜单和 admin 登录，不会创建
 演示员工、OAuth 客户端、考勤或工资数据。
 
-MySQL profile：
+MySQL profile 默认 `oa.demo.seed=false`，不会注入演示员工、公开 OAuth 客户端
+或考勤工资数据；如需本地演示可显式设置 `OA_DEMO_SEED=true`。
+
+启动 MySQL profile：
 
 ```bash
 DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=oa \

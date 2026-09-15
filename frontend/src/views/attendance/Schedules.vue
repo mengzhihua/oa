@@ -17,7 +17,7 @@
           @click="load"
           >查询</el-button
         ><el-button
-          v-if="canWrite('ADMIN', 'HR', 'MANAGER')"
+          v-if="canWrite('ADMIN', 'HR')"
           @click="batchVisible = true"
           >批量排班</el-button
         ></el-form
@@ -47,6 +47,7 @@
         ><el-button @click="batchVisible = false">取消</el-button
         ><el-button
           type="primary"
+          v-if="canWrite('ADMIN', 'HR')"
           @click="saveBatch"
           >保存</el-button
         ></template

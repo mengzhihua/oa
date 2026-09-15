@@ -129,6 +129,33 @@ public class OAuthFlowTest {
                 .andExpect(jsonPath("$.error").value("unauthorized_client"));
     }
 
+    @Test
+    public void 撤销令牌必须匹配当前客户端() throws Exception {
+        String oaToken = login();
+        JsonNode exchanged = objectMapper.readTree(exchange(authorize(oaToken, null), null));
+        String accessToken = exchanged.get("access_token").asText();
+
+        mockMvc.perform(post("/api/oauth/revoke")
+                        .param("token", accessToken)
+                        .header("Authorization", basic("srm-client", "srm-client-secret")))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/oauth/introspect")
+                        .param("token", accessToken)
+                        .header("Authorization", basic("sap-client", "sap-client-secret")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+
+        mockMvc.perform(post("/api/oauth/revoke")
+                        .param("token", accessToken)
+                        .header("Authorization", basic("sap-client", "sap-client-secret")))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/oauth/introspect")
+                        .param("token", accessToken)
+                        .header("Authorization", basic("sap-client", "sap-client-secret")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false));
+    }
+
     private String login() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

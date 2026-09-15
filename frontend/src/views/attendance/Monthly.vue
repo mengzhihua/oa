@@ -5,19 +5,22 @@
     description="生成、确认并锁定工资核算所需考勤数据"
     ><template #actions
       ><el-button
+        v-if="canWrite('ADMIN', 'HR')"
         type="primary"
         @click="generate"
         >生成</el-button
       ><el-button
+        v-if="canWrite('ADMIN', 'HR')"
         :disabled="!canConfirm"
         @click="confirm"
         >确认</el-button
       ><el-button
+        v-if="canWrite('ADMIN', 'HR')"
         type="warning"
         :disabled="!canLock"
         @click="lock"
         >锁定</el-button
-      ><el-button @click="exportCsv">导出 CSV</el-button></template
+      ><el-button v-if="canWrite('ADMIN', 'HR')" @click="exportCsv">导出 CSV</el-button></template
     ><el-card
       ><el-form inline
         ><el-form-item label="月份"
@@ -50,6 +53,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { canWrite } from '../../auth'
 import { attendanceApi } from '../../api/attendance'
 import PageShell from '../../components/PageShell.vue'
 import StatusTag from '../../components/StatusTag.vue'

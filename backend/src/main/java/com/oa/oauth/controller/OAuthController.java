@@ -11,6 +11,8 @@ import com.oa.system.auth.TokenService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +38,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/oauth")
 public class OAuthController {
+    private static final Logger log = LoggerFactory.getLogger(OAuthController.class);
     private final JdbcTemplate jdbc;
     private final TokenService tokenService;
 
@@ -189,12 +192,22 @@ public class OAuthController {
 
     @PostMapping("/revoke")
     public ResponseEntity<?> revoke(@RequestParam String token, HttpServletRequest request) {
-        if (!authenticateClient(request)) {
+        String clientId = authenticatedClientId(request);
+        if (clientId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(error("invalid_client", "客户端认证失败"));
         }
-        jdbc.update("UPDATE oauth_token SET revoked = 1 "
+        List<Map<String, Object>> ownerRows = jdbc.queryForList(
+                "SELECT client_id FROM oauth_token "
                         + "WHERE access_token = ? OR refresh_token = ?", token, token);
+        if (!ownerRows.isEmpty()
+                && !clientId.equals(value(ownerRows.get(0), "CLIENT_ID"))) {
+            log.warn("OAuth revoke ownership mismatch: requester={}, tokenOwner={}",
+                    clientId, value(ownerRows.get(0), "CLIENT_ID"));
+        }
+        jdbc.update("UPDATE oauth_token SET revoked = 1 "
+                        + "WHERE (access_token = ? OR refresh_token = ?) AND client_id = ?",
+                token, token, clientId);
         return ResponseEntity.ok(Collections.singletonMap("revoked", true));
     }
 
@@ -369,19 +382,24 @@ public class OAuthController {
     }
 
     private boolean authenticateClient(HttpServletRequest request) {
+        return authenticatedClientId(request) != null;
+    }
+
+    private String authenticatedClientId(HttpServletRequest request) {
         String basic = request.getHeader("Authorization");
         if (basic == null || !basic.startsWith("Basic ")) {
-            return false;
+            return null;
         }
         String value = new String(Base64.getDecoder().decode(basic.substring(6)),
                 StandardCharsets.UTF_8);
         int split = value.indexOf(':');
         if (split < 1) {
-            return false;
+            return null;
         }
-        Map<String, Object> client = client(value.substring(0, split));
+        String clientId = value.substring(0, split);
+        Map<String, Object> client = client(clientId);
         return client != null && PasswordHasher.verify(value.substring(split + 1),
-                string(client, "CLIENT_SECRET_HASH"));
+                string(client, "CLIENT_SECRET_HASH")) ? clientId : null;
     }
 
     private Map<String, Object> client(String clientId) {
