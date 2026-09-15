@@ -50,6 +50,20 @@ public class AccessPolicyTest {
         assertTrue(policy.allowed("GET", "/api/notices", admin));
         assertTrue(policy.allowed("GET", "/api/notices", hr));
         assertFalse(policy.allowed("GET", "/api/notices", employee));
+        assertTrue(policy.allowed("POST", "/api/notices", admin));
+        assertTrue(policy.allowed("PUT", "/api/notices/1", hr));
+        assertTrue(policy.allowed("POST", "/api/notices/1/publish", hr));
+        assertTrue(policy.allowed("POST", "/api/notices/1/revoke", admin));
+        assertTrue(policy.allowed("POST", "/api/notices/1/read", employee));
+        assertFalse(policy.allowed("POST", "/api/notices", employee));
+        assertTrue(policy.allowed("POST", "/api/meetings/rooms", hr));
+        assertFalse(policy.allowed("POST", "/api/meetings/rooms", employee));
+        assertTrue(policy.allowed("GET", "/api/attendance/shifts", manager));
+        assertFalse(policy.allowed("POST", "/api/attendance/shifts", manager));
+        assertTrue(policy.allowed("GET", "/api/attendance/schedules", manager));
+        assertFalse(policy.allowed("POST", "/api/attendance/schedules", manager));
+        assertTrue(policy.allowed("GET", "/api/attendance/holidays", manager));
+        assertFalse(policy.allowed("POST", "/api/attendance/holidays", manager));
     }
 
     @Test

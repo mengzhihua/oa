@@ -111,7 +111,12 @@ INSERT IGNORE INTO pay_period (
     total_gross, total_net, headcount
 ) VALUES ('2026-08', 'OPEN', 1, NULL, NULL, 0, 0, 0);
 
-INSERT IGNORE INTO oa_meeting_room (name, location, capacity, equipment, status) VALUES
-    ('1号会议室', '总部一层', 10, '白板、投影', 'ACTIVE'),
-    ('2号会议室', '总部二层', 20, '投影、音响', 'ACTIVE'),
-    ('多媒体厅', '总部三层', 50, '大屏、音响、视频会议', 'ACTIVE');
+INSERT INTO oa_meeting_room (name, location, capacity, equipment, status)
+SELECT '1号会议室', '总部一层', 10, '白板、投影', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM oa_meeting_room WHERE name = '1号会议室');
+INSERT INTO oa_meeting_room (name, location, capacity, equipment, status)
+SELECT '2号会议室', '总部二层', 20, '投影、音响', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM oa_meeting_room WHERE name = '2号会议室');
+INSERT INTO oa_meeting_room (name, location, capacity, equipment, status)
+SELECT '多媒体厅', '总部三层', 50, '大屏、音响、视频会议', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM oa_meeting_room WHERE name = '多媒体厅');

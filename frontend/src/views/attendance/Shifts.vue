@@ -36,11 +36,13 @@
           ><template #default="{ row }"
             ><el-button
               link
+              v-if="canWrite('ADMIN', 'HR')"
               @click="open(row)"
               >编辑</el-button
             ><el-button
               link
               type="danger"
+              v-if="canWrite('ADMIN', 'HR')"
               @click="remove(row)"
               >删除</el-button
             ></template
