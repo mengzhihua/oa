@@ -20,7 +20,7 @@
         :disabled="!canLock"
         @click="lock"
         >锁定</el-button
-      ><el-button v-if="canWrite('ADMIN', 'HR')" @click="exportCsv">导出 CSV</el-button></template
+      ><el-button @click="exportCsv">导出 CSV</el-button></template
     ><el-card
       ><el-form inline
         ><el-form-item label="月份"
