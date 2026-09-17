@@ -87,12 +87,49 @@ public class OpenIrController {
                     first(str(params.get("businessType")), "IR"),
                     first(str(params.get("businessId")), targetKey)));
         }
+        if ("OA_APPROVE_TASK".equals(type) || "OA_COMPLETE_TASK".equals(type)) {
+            Long taskId = taskId(first(str(params.get("taskId")), targetKey));
+            Map<String, Object> task = one("SELECT * FROM wf_task WHERE id = ?", taskId);
+            if (task == null) {
+                throw new BizException("待办不存在: " + taskId);
+            }
+            Object approver = cell(task, "approver_user_id", "APPROVER_USER_ID");
+            if (!(approver instanceof Number)) {
+                throw new BizException("待办缺少审批人: " + taskId);
+            }
+            workflowService.approve(taskId, ((Number) approver).longValue(),
+                    first(str(params.get("comment")), "IR 控制塔系统审批"));
+            return R.ok(one("SELECT * FROM wf_task WHERE id = ?", taskId));
+        }
         throw new BizException("不支持的 IR 指令: " + type);
+    }
+
+    private Long taskId(String value) {
+        if (value == null || value.trim().isEmpty() || "null".equals(value)) {
+            throw new BizException("缺少待办 ID");
+        }
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new BizException("待办 ID 非法: " + value);
+        }
+    }
+
+    private Map<String, Object> one(String sql, Object... args) {
+        List<Map<String, Object>> rows = jdbc.queryForList(sql, args);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     private Long applicantId() {
         List<Map<String, Object>> users = jdbc.queryForList(
-                "SELECT id FROM sys_user WHERE status = 1 ORDER BY id");
+                "SELECT id FROM sys_user WHERE username = 'zhangsan' AND status = 1");
+        if (users.isEmpty()) {
+            users = jdbc.queryForList(
+                    "SELECT id FROM sys_user WHERE status = 1 AND employee_id IS NOT NULL ORDER BY id");
+        }
+        if (users.isEmpty()) {
+            users = jdbc.queryForList("SELECT id FROM sys_user WHERE status = 1 ORDER BY id");
+        }
         if (users.isEmpty()) {
             throw new BizException("OA 没有可用申请人");
         }
