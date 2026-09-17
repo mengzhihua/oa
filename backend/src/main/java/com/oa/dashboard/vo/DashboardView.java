@@ -1,4 +1,4 @@
-package com.oa.dashboard;
+package com.oa.dashboard.vo;
 
 import lombok.Data;
 

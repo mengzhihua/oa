@@ -1,4 +1,4 @@
-package com.oa.oauth;
+package com.oa.oauth.controller;
 
 import com.oa.common.BizException;
 import com.oa.common.R;
