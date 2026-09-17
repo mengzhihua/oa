@@ -31,5 +31,7 @@ oa:
     token-ttl: ${OA_TOKEN_TTL:12h}
     admin-password: ${OA_ADMIN_PASSWORD:admin123}
   cors.allowed-origins: ${OA_CORS_ALLOWED_ORIGINS:http://localhost:5176}
+  open:
+    api-key: ${OA_OPEN_API_KEY:oa-open-key}
 logging.level.com.oa: info
 oa.attendance.schedule-enabled: ${OA_ATTENDANCE_SCHEDULE_ENABLED:true}
