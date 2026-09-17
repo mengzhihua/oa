@@ -41,7 +41,8 @@ public class AuthInterceptor implements HandlerInterceptor {
                 || "/api/oauth/revoke".equals(path)
                 || "/api/oauth/userinfo".equals(path)
                 || path.startsWith("/api/oauth/.well-known/")
-                || path.startsWith("/actuator/")) {
+                || path.startsWith("/actuator/")
+                || path.startsWith("/api/open/")) {
             return true;
         }
         TokenService.Principal principal = tokenService.parse(bearer(request));
