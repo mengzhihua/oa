@@ -1,4 +1,4 @@
-package com.oa.org;
+package com.oa.org.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oa.common.BizException;

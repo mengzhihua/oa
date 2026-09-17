@@ -1,4 +1,4 @@
-package com.oa.dashboard;
+package com.oa.dashboard.controller;
 
 import com.oa.attendance.service.AttendanceService;
 import com.oa.collab.service.CollabService;
@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.oa.dashboard.vo.DashboardView;
 
 @RestController
 @RequestMapping("/api/dashboard")

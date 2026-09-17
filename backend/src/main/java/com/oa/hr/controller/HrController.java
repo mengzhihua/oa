@@ -1,4 +1,4 @@
-package com.oa.hr;
+package com.oa.hr.controller;
 
 import com.oa.common.PageResult;
 import com.oa.common.R;

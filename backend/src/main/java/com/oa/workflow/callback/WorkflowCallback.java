@@ -1,4 +1,4 @@
-package com.oa.workflow;
+package com.oa.workflow.callback;
 
 public interface WorkflowCallback {
     String businessType();

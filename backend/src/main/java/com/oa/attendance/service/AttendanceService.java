@@ -21,7 +21,7 @@ import com.oa.attendance.entity.AttTripRequest;
 import com.oa.attendance.vo.ClockTodayView;
 import com.oa.common.BizException;
 import com.oa.system.auth.CurrentUser;
-import com.oa.workflow.WorkflowService;
+import com.oa.workflow.service.WorkflowService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
