@@ -430,8 +430,14 @@ public class AttendanceService {
         List<Long> employeeIds = employeeIds(deptId, yearMonth);
         int count = 0;
         for (Long employeeId : employeeIds) {
-            recalcEmployee(employeeId, from, payrollEndDate(employeeId, to));
-            Map<String, Object> values = monthlyValues(employeeId, yearMonth, from, to);
+            LocalDate payrollEnd = payrollEndDate(employeeId, to);
+            recalcEmployee(employeeId, from, payrollEnd);
+            jdbc.update("DELETE FROM att_daily WHERE employee_id = ? AND work_date > ? "
+                            + "AND work_date <= ? AND NOT EXISTS "
+                            + "(SELECT 1 FROM att_monthly_summary WHERE employee_id = ? "
+                            + "AND year_month = ? AND status = 'LOCKED')",
+                    employeeId, payrollEnd, to, employeeId, yearMonth);
+            Map<String, Object> values = monthlyValues(employeeId, yearMonth, from, payrollEnd);
             jdbc.update("DELETE FROM att_monthly_summary WHERE employee_id = ? AND year_month = ? "
                             + "AND status <> 'LOCKED'", employeeId, yearMonth);
             if (monthlyService.lambdaQuery().eq(

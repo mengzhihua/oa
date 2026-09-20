@@ -13,8 +13,10 @@ import com.oa.payroll.service.PaySlipService;
 import com.oa.payroll.service.PayrollCalcService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -25,9 +27,14 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@AutoConfigureMockMvc
 public class PayrollCalcTest {
     private Long testEmployeeId;
     @Autowired
@@ -47,6 +54,9 @@ public class PayrollCalcTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
     private AttendanceService attendanceService;
@@ -140,6 +150,8 @@ public class PayrollCalcTest {
                     "SELECT id FROM hr_employee WHERE employee_no = 'TEST-LEFT-001'",
                     Long.class);
         }
+        jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', leave_date = NULL "
+                        + "WHERE id = ?", employeeId);
         jdbc.update("DELETE FROM pay_scheme WHERE employee_id = ?", employeeId);
         PayScheme scheme = new PayScheme();
         scheme.setEmployeeId(employeeId);
@@ -163,11 +175,64 @@ public class PayrollCalcTest {
         period.setTotalNet(BigDecimal.ZERO);
         periodService.save(period);
         attendanceService.generateMonthly("2025-03", null);
+        int generatedAfterLeaveDate = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM att_daily WHERE employee_id = ? "
+                        + "AND work_date > '2025-03-15' AND work_date <= '2025-03-31'",
+                Integer.class, employeeId);
+        assertTrue(generatedAfterLeaveDate > 0);
+        jdbc.update("UPDATE hr_employee SET employment_status = 'LEFT', leave_date = '2025-03-15' "
+                        + "WHERE id = ?", employeeId);
+        attendanceService.generateMonthly("2025-03", null);
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM att_daily WHERE employee_id = ? "
+                        + "AND work_date > '2025-03-15' AND work_date <= '2025-03-31'",
+                Integer.class, employeeId));
         attendanceService.lockMonthly("2025-03");
         payrollCalcService.calculate(period.getId());
         assertEquals(1, slipService.lambdaQuery()
                 .eq(PaySlip::getPeriodId, period.getId())
                 .eq(PaySlip::getEmployeeId, employeeId).count());
+    }
+
+    @Test
+    public void 工资条接口补充未配置工资项目的明细() throws Exception {
+        Long employeeId = jdbc.queryForObject(
+                "SELECT employee_id FROM sys_user WHERE username = 'zhangsan'", Long.class);
+        jdbc.update("DELETE FROM pay_slip WHERE period_id IN "
+                        + "(SELECT id FROM pay_period WHERE year_month = '2098-11')");
+        jdbc.update("DELETE FROM pay_period WHERE year_month = '2098-11'");
+        jdbc.update("INSERT INTO pay_period "
+                        + "(year_month, status, att_locked, total_gross, total_net, headcount) "
+                        + "VALUES ('2098-11', 'PAID', 1, 0, 0, 1)");
+        Long periodId = jdbc.queryForObject(
+                "SELECT id FROM pay_period WHERE year_month = '2098-11'", Long.class);
+        jdbc.update("INSERT INTO pay_slip "
+                        + "(period_id, employee_id, items_json, gross, taxable_income, cumulative_taxable, "
+                        + "cumulative_tax, tax, si_personal, hf_personal, si_company, hf_company, net, status) "
+                        + "VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'PAID')",
+                periodId, employeeId,
+                "{\"BASE\":1000,\"ALLOWANCE\":200,\"ADJUSTMENT\":-10,\"CUSTOM\":5}");
+        String token = loginToken();
+        mockMvc.perform(get("/api/payroll/slips/mine")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].yearMonth").value("2098-11"))
+                .andExpect(jsonPath("$.data[0].itemDetails[0].code").value("BASE"))
+                .andExpect(jsonPath("$.data[0].itemDetails[1].name").value("补贴合计"))
+                .andExpect(jsonPath("$.data[0].itemDetails[2].name").value("手工调整"))
+                .andExpect(jsonPath("$.data[0].itemDetails[3].name").value("CUSTOM"));
+    }
+
+    private String loginToken() throws Exception {
+        org.springframework.test.web.servlet.MvcResult result =
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/auth/login")
+                                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                                .content("{\"username\":\"zhangsan\",\"password\":\"emp123\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("data").get("token").asText();
     }
 
     private Long prepareEmployee() {

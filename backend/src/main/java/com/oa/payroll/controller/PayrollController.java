@@ -43,10 +43,12 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import com.oa.payroll.vo.PayrollCostRow;
 
 @Validated
@@ -264,6 +266,7 @@ public class PayrollController {
                 values = new LinkedHashMap<>();
             }
             List<PaySlipItemView> details = new ArrayList<>();
+            Set<String> consumed = new HashSet<>();
             for (Map.Entry<String, Map<String, Object>> entry : items.entrySet()) {
                 if (!values.containsKey(entry.getKey())) {
                     continue;
@@ -273,12 +276,33 @@ public class PayrollController {
                 detail.setName(String.valueOf(entry.getValue().get("name")));
                 detail.setAmount(new java.math.BigDecimal(String.valueOf(values.get(entry.getKey()))));
                 details.add(detail);
+                consumed.add(entry.getKey());
+            }
+            for (Map.Entry<String, Object> entry : values.entrySet()) {
+                if (consumed.contains(entry.getKey()) || items.containsKey(entry.getKey())) {
+                    continue;
+                }
+                PaySlipItemView detail = new PaySlipItemView();
+                detail.setCode(entry.getKey());
+                detail.setName(extraItemName(entry.getKey()));
+                detail.setAmount(new java.math.BigDecimal(String.valueOf(entry.getValue())));
+                details.add(detail);
             }
             slip.setItemDetails(details);
             slip.setYearMonth(jdbc.queryForObject(
                     "SELECT year_month FROM pay_period WHERE id = ?", String.class,
                     slip.getPeriodId()));
         }
+    }
+
+    private String extraItemName(String code) {
+        if ("ALLOWANCE".equals(code)) {
+            return "补贴合计";
+        }
+        if ("ADJUSTMENT".equals(code)) {
+            return "手工调整";
+        }
+        return code;
     }
 
     @GetMapping("/periods/{id}/export")

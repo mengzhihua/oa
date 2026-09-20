@@ -52,14 +52,14 @@ INSERT IGNORE INTO wf_definition (code, name, form_schema_json, status, version)
     ('EXPENSE', '报销申请', '{"fields":["amount","reason"]}', 1, 1),
     ('GENERAL', '通用申请', '{"fields":["content"]}', 1, 1);
 
-INSERT IGNORE INTO sys_menu (code, name, path, parent_id, sort, icon, type, status) VALUES
-    ('SYSTEM', '系统管理', '/system', NULL, 10, '设置', 'DIRECTORY', 1),
-    ('SYSTEM_USER', '用户管理', '/system/users', NULL, 11, '用户', 'MENU', 1),
-    ('SYSTEM_ROLE', '角色管理', '/system/roles', NULL, 12, '角色', 'MENU', 1),
-    ('ORG', '组织架构', '/org', NULL, 20, '组织', 'DIRECTORY', 1),
-    ('HR', '员工管理', '/hr', NULL, 30, '人员', 'DIRECTORY', 1),
-    ('WORKFLOW', '审批中心', '/workflow', NULL, 40, '审批', 'DIRECTORY', 1),
-    ('OAUTH', '单点登录', '/oauth', NULL, 50, '链接', 'MENU', 1);
+INSERT IGNORE INTO sys_menu (code, name, path, parent_id, sort, icon) VALUES
+    ('SYSTEM', '系统管理', '/system', NULL, 10, '设置'),
+    ('SYSTEM_USER', '用户管理', '/system/users', NULL, 11, '用户'),
+    ('SYSTEM_ROLE', '角色管理', '/system/roles', NULL, 12, '角色'),
+    ('ORG', '组织架构', '/org', NULL, 20, '组织'),
+    ('HR', '员工管理', '/hr', NULL, 30, '人员'),
+    ('WORKFLOW', '审批中心', '/workflow', NULL, 40, '审批'),
+    ('OAUTH', '单点登录', '/oauth', NULL, 50, '链接');
 
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id)
 SELECT r.id, m.id FROM sys_role r CROSS JOIN sys_menu m WHERE r.code = 'ADMIN';

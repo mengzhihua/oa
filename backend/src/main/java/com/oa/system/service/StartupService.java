@@ -42,6 +42,7 @@ public class StartupService {
 
     @PostConstruct
     public void init() {
+        ensureMenuColumns();
         ensureAdmin();
         if (!demoSeed) {
             return;
@@ -54,6 +55,30 @@ public class StartupService {
         ensureDepartments();
         ensureWorkflowNodes();
         ensureDemoPayroll();
+        ensureDemoMeetingRooms();
+    }
+
+    private void ensureMenuColumns() {
+        if (!columnExists("sys_menu", "type")) {
+            jdbc.execute("ALTER TABLE sys_menu ADD COLUMN type VARCHAR(32) DEFAULT 'MENU'");
+        }
+        if (!columnExists("sys_menu", "status")) {
+            jdbc.execute("ALTER TABLE sys_menu ADD COLUMN status INT DEFAULT 1");
+        }
+        jdbc.update("UPDATE sys_menu SET type = 'MENU' WHERE type IS NULL");
+        jdbc.update("UPDATE sys_menu SET type = 'DIRECTORY' "
+                + "WHERE code IN ('SYSTEM', 'ORG', 'HR', 'WORKFLOW') "
+                + "AND (type IS NULL OR type = 'MENU')");
+        jdbc.update("UPDATE sys_menu SET status = 1 WHERE status IS NULL");
+    }
+
+    private boolean columnExists(String table, String column) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                        + "WHERE UPPER(TABLE_NAME) = UPPER(?) "
+                        + "AND UPPER(COLUMN_NAME) = UPPER(?)",
+                Integer.class, table, column);
+        return count != null && count > 0;
     }
 
     private void ensureAdmin() {
@@ -192,6 +217,21 @@ public class StartupService {
         payrollCalcService.calculate(periodId);
         payrollCalcService.approve(periodId, financeUserId);
         payrollCalcService.pay(periodId);
+    }
+
+    private void ensureDemoMeetingRooms() {
+        ensureMeetingRoom("1号会议室", "总部一层", 10, "白板、投影");
+        ensureMeetingRoom("2号会议室", "总部二层", 20, "投影、音响");
+        ensureMeetingRoom("多媒体厅", "总部三层", 50, "大屏、音响、视频会议");
+    }
+
+    private void ensureMeetingRoom(String name, String location, int capacity,
+                                   String equipment) {
+        jdbc.update("INSERT INTO oa_meeting_room "
+                        + "(name, location, capacity, equipment, status) "
+                        + "SELECT ?, ?, ?, ?, 'ACTIVE' WHERE NOT EXISTS "
+                        + "(SELECT 1 FROM oa_meeting_room WHERE name = ?)",
+                name, location, capacity, equipment, name);
     }
 
     private void ensureNode(String code, int seq, String name, String type,
