@@ -59,7 +59,21 @@
           fmtMoney(current.net)
         }}</el-descriptions-item></el-descriptions
       >
-      <pre>{{ format(current.itemsJson) }}</pre></el-drawer
+      <el-table
+        :data="detailItems(current)"
+        border
+        ><el-table-column
+          prop="code"
+          label="编码"
+        /><el-table-column
+          prop="name"
+          label="名称"
+        /><el-table-column
+          label="金额"
+          align="right"
+          ><template #default="{ row }">{{ fmtMoney(row.amount) }}</template></el-table-column
+        ></el-table
+      ></el-drawer
     ><el-dialog
       v-model="adjustVisible"
       title="手工调整"
@@ -101,12 +115,21 @@ async function load() {
   const data = await payrollApi.slips(query)
   rows.value = data.records || []
 }
-function format(value) {
-  try {
-    return JSON.stringify(JSON.parse(value || '{}'), null, 2)
-  } catch {
-    return value || '{}'
+function detailItems(slip) {
+  if (slip.itemDetails?.length) {
+    return slip.itemDetails
   }
+  let data = {}
+  try {
+    data = JSON.parse(slip.itemsJson || '{}')
+  } catch {
+    data = {}
+  }
+  return Object.entries(data).map(([code, amount]) => ({
+    code,
+    name: code,
+    amount,
+  }))
 }
 function detail(row) {
   current.value = row

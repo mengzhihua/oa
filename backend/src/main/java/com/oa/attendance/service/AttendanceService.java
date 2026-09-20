@@ -432,11 +432,13 @@ public class AttendanceService {
         for (Long employeeId : employeeIds) {
             LocalDate payrollEnd = payrollEndDate(employeeId, to);
             recalcEmployee(employeeId, from, payrollEnd);
-            jdbc.update("DELETE FROM att_daily WHERE employee_id = ? AND work_date > ? "
-                            + "AND work_date <= ? AND NOT EXISTS "
-                            + "(SELECT 1 FROM att_monthly_summary WHERE employee_id = ? "
-                            + "AND year_month = ? AND status = 'LOCKED')",
-                    employeeId, payrollEnd, to, employeeId, yearMonth);
+            if (!payrollEnd.equals(to)) {
+                jdbc.update("DELETE FROM att_daily WHERE employee_id = ? AND work_date > ? "
+                                + "AND work_date <= ? AND NOT EXISTS "
+                                + "(SELECT 1 FROM att_monthly_summary WHERE employee_id = ? "
+                                + "AND year_month = ? AND status = 'LOCKED')",
+                        employeeId, payrollEnd, to, employeeId, yearMonth);
+            }
             Map<String, Object> values = monthlyValues(employeeId, yearMonth, from, payrollEnd);
             jdbc.update("DELETE FROM att_monthly_summary WHERE employee_id = ? AND year_month = ? "
                             + "AND status <> 'LOCKED'", employeeId, yearMonth);
@@ -625,12 +627,21 @@ public class AttendanceService {
     }
 
     private LocalDate payrollEndDate(Long employeeId, LocalDate monthEnd) {
+        String status = jdbc.queryForObject(
+                "SELECT employment_status FROM hr_employee WHERE id = ?", String.class, employeeId);
+        LocalDate monthStart = monthEnd.withDayOfMonth(1);
         LocalDate leaveDate = jdbc.query(
                 "SELECT leave_date FROM hr_employee WHERE id = ?",
                 new Object[]{employeeId},
                 result -> result.next() && result.getDate(1) != null
                         ? result.getDate(1).toLocalDate() : null);
-        return leaveDate != null && leaveDate.isBefore(monthEnd) ? leaveDate : monthEnd;
+        if (("LEFT".equals(status) || "LEAVING".equals(status))
+                && leaveDate != null
+                && !leaveDate.isBefore(monthStart)
+                && !leaveDate.isAfter(monthEnd)) {
+            return leaveDate;
+        }
+        return monthEnd;
     }
 
     private AttShift findShift(Long employeeId, LocalDate date) {

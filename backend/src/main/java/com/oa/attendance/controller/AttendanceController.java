@@ -14,6 +14,8 @@ import com.oa.attendance.entity.AttLeaveRequest;
 import com.oa.attendance.entity.AttMonthlySummary;
 import com.oa.attendance.entity.AttOvertimeRequest;
 import com.oa.attendance.entity.AttPatchRequest;
+import com.oa.attendance.entity.AttSchedule;
+import com.oa.attendance.entity.AttShift;
 import com.oa.attendance.entity.AttTripRequest;
 import com.oa.attendance.service.AttDailyService;
 import com.oa.attendance.service.AttLeaveBalanceService;
@@ -21,8 +23,11 @@ import com.oa.attendance.service.AttLeaveRequestService;
 import com.oa.attendance.service.AttMonthlySummaryService;
 import com.oa.attendance.service.AttOvertimeRequestService;
 import com.oa.attendance.service.AttPatchRequestService;
+import com.oa.attendance.service.AttScheduleService;
+import com.oa.attendance.service.AttShiftService;
 import com.oa.attendance.service.AttTripRequestService;
 import com.oa.attendance.service.AttendanceService;
+import com.oa.common.BizException;
 import com.oa.attendance.vo.ClockTodayView;
 import com.oa.common.PageResult;
 import com.oa.common.R;
@@ -30,8 +35,10 @@ import com.oa.system.auth.CurrentUser;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +60,8 @@ public class AttendanceController {
     private final AttLeaveRequestService leaveService;
     private final AttOvertimeRequestService overtimeService;
     private final AttPatchRequestService patchService;
+    private final AttScheduleService scheduleService;
+    private final AttShiftService shiftService;
     private final AttTripRequestService tripService;
     private final AttLeaveBalanceService balanceService;
     private final AttMonthlySummaryService monthlyService;
@@ -62,6 +71,8 @@ public class AttendanceController {
                                 AttLeaveRequestService leaveService,
                                 AttOvertimeRequestService overtimeService,
                                 AttPatchRequestService patchService,
+                                AttScheduleService scheduleService,
+                                AttShiftService shiftService,
                                 AttTripRequestService tripService,
                                 AttLeaveBalanceService balanceService,
                                 AttMonthlySummaryService monthlyService) {
@@ -70,6 +81,8 @@ public class AttendanceController {
         this.leaveService = leaveService;
         this.overtimeService = overtimeService;
         this.patchService = patchService;
+        this.scheduleService = scheduleService;
+        this.shiftService = shiftService;
         this.tripService = tripService;
         this.balanceService = balanceService;
         this.monthlyService = monthlyService;
@@ -162,12 +175,48 @@ public class AttendanceController {
         return R.ok(attendanceService.batchSchedule(request));
     }
 
+    @GetMapping("/shifts")
+    public R<List<AttShift>> shifts() {
+        return R.ok(shiftService.lambdaQuery().orderByAsc(AttShift::getId).list());
+    }
+
+    @PostMapping("/shifts")
+    public R<AttShift> createShift(@Valid @RequestBody AttShift shift) {
+        shift.setId(null);
+        shiftService.save(shift);
+        return R.ok(shift);
+    }
+
+    @PutMapping("/shifts/{id}")
+    public R<AttShift> updateShift(@PathVariable Long id,
+                                   @Valid @RequestBody AttShift shift) {
+        shift.setId(id);
+        shiftService.updateById(shift);
+        return R.ok(shiftService.getById(id));
+    }
+
+    @DeleteMapping("/shifts/{id}")
+    public R<Void> deleteShift(@PathVariable Long id) {
+        long references = scheduleService.lambdaQuery()
+                .eq(AttSchedule::getShiftId, id).count();
+        if (references > 0) {
+            throw new BizException("班次已被排班引用");
+        }
+        shiftService.removeById(id);
+        return R.ok();
+    }
+
     @GetMapping("/schedules")
     public R<List<com.oa.attendance.entity.AttSchedule>> schedules(
             @RequestParam(required = false) Long employeeId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return R.ok(attendanceService.schedules(employeeId, from, to));
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        YearMonth month = YearMonth.now();
+        LocalDate start = from == null ? month.atDay(1) : from;
+        LocalDate end = to == null ? month.atEndOfMonth() : to;
+        return R.ok(attendanceService.schedules(employeeId, start, end));
     }
 
     @GetMapping("/daily/department")

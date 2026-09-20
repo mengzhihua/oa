@@ -4,6 +4,7 @@ import com.oa.common.PageResult;
 import com.oa.common.R;
 import com.oa.hr.dto.EmployeeRequest;
 import com.oa.hr.dto.ContractRequest;
+import com.oa.hr.dto.LeaveRequest;
 import com.oa.hr.dto.TransferRequest;
 import com.oa.hr.entity.HrEmployee;
 import com.oa.hr.service.HrEmployeeService;
@@ -96,13 +97,18 @@ public class HrController {
         HrEmployee employee = toEntity(request);
         employee.setId(id);
         employeeService.updateById(employee);
+        if (request.getEmploymentStatus() != null
+                && !"LEFT".equals(request.getEmploymentStatus())
+                && !"LEAVING".equals(request.getEmploymentStatus())) {
+            jdbc.update("UPDATE hr_employee SET leave_date = NULL WHERE id = ?", id);
+        }
         return R.ok(employeeService.getById(id));
     }
 
     @PostMapping("/employees/{id}/regular")
     public R<Void> regular(@PathVariable Long id) {
         jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', "
-                + "regular_date = ? WHERE id = ?", LocalDate.now(), id);
+                + "regular_date = ?, leave_date = NULL WHERE id = ?", LocalDate.now(), id);
         return R.ok();
     }
 
@@ -121,10 +127,23 @@ public class HrController {
     }
 
     @PostMapping("/employees/{id}/leave")
-    public R<Void> leave(@PathVariable Long id) {
-        jdbc.update("UPDATE hr_employee SET employment_status = 'LEFT', leave_date = ? "
-                + "WHERE id = ?", LocalDate.now(), id);
-        jdbc.update("UPDATE sys_user SET status = 0 WHERE employee_id = ?", id);
+    public R<Void> leave(@PathVariable Long id,
+                         @RequestBody(required = false) LeaveRequest request) {
+        LocalDate leaveDate = request == null || request.getLeaveDate() == null
+                ? LocalDate.now() : request.getLeaveDate();
+        String status = leaveDate.isAfter(LocalDate.now()) ? "LEAVING" : "LEFT";
+        HrEmployee before = employeeService.getById(id);
+        jdbc.update("UPDATE hr_employee SET employment_status = ?, leave_date = ? "
+                        + "WHERE id = ?", status, leaveDate, id);
+        if ("LEFT".equals(status)) {
+            jdbc.update("UPDATE sys_user SET status = 0 WHERE employee_id = ?", id);
+        }
+        jdbc.update("INSERT INTO hr_employee_change "
+                        + "(employee_id, change_type, before_json, after_json, effective_date, "
+                        + "reason, operator) VALUES (?, 'LEAVE', ?, ?, ?, ?, ?)",
+                id, before == null ? null : before.toString(),
+                request == null ? null : request.toString(), leaveDate,
+                request == null ? null : request.getReason(), CurrentUser.id());
         return R.ok();
     }
 

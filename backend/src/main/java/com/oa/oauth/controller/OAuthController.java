@@ -324,21 +324,21 @@ public class OAuthController {
                 "SELECT username FROM sys_user WHERE id = ?", String.class, userId);
         String accessToken = tokenService.issueOAuth(userId, username, clientId,
                 accessTtl * 1000L);
-        String refreshToken = UUID.randomUUID().toString();
-        if (userId != null) {
-            jdbc.update("INSERT INTO oauth_token "
-                            + "(access_token, refresh_token, client_id, user_id, scope, "
-                            + "access_expires_at, refresh_expires_at, revoked) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
-                    accessToken, refreshToken, clientId, userId, scope,
-                    LocalDateTime.now().plusSeconds(accessTtl),
-                    LocalDateTime.now().plusSeconds(refreshTtl));
-        }
+        String refreshToken = userId == null ? null : UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO oauth_token "
+                        + "(access_token, refresh_token, client_id, user_id, scope, "
+                        + "access_expires_at, refresh_expires_at, revoked) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+                accessToken, refreshToken, clientId, userId, scope,
+                LocalDateTime.now().plusSeconds(accessTtl),
+                refreshToken == null ? null : LocalDateTime.now().plusSeconds(refreshTtl));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("access_token", accessToken);
         result.put("token_type", "Bearer");
         result.put("expires_in", accessTtl);
-        result.put("refresh_token", refreshToken);
+        if (refreshToken != null) {
+            result.put("refresh_token", refreshToken);
+        }
         result.put("scope", scope);
         return result;
     }
