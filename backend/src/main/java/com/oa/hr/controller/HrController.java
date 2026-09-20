@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
@@ -92,23 +93,31 @@ public class HrController {
     }
 
     @PutMapping("/employees/{id}")
+    @Transactional
     public R<HrEmployee> update(@PathVariable Long id,
                                 @Valid @RequestBody EmployeeRequest request) {
+        HrEmployee before = employeeService.getById(id);
         HrEmployee employee = toEntity(request);
         employee.setId(id);
+        boolean restore = request.getEmploymentStatus() != null
+                && !isLeavingStatus(request.getEmploymentStatus())
+                && before != null && isLeavingStatus(before.getEmploymentStatus());
         employeeService.updateById(employee);
-        if (request.getEmploymentStatus() != null
-                && !"LEFT".equals(request.getEmploymentStatus())
-                && !"LEAVING".equals(request.getEmploymentStatus())) {
-            jdbc.update("UPDATE hr_employee SET leave_date = NULL WHERE id = ?", id);
+        if (restore) {
+            restoreEmployment(id, before.getEmploymentStatus());
         }
         return R.ok(employeeService.getById(id));
     }
 
     @PostMapping("/employees/{id}/regular")
+    @Transactional
     public R<Void> regular(@PathVariable Long id) {
+        HrEmployee before = employeeService.getById(id);
+        if (before != null && isLeavingStatus(before.getEmploymentStatus())) {
+            restoreEmployment(id);
+        }
         jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', "
-                + "regular_date = ?, leave_date = NULL WHERE id = ?", LocalDate.now(), id);
+                + "regular_date = ? WHERE id = ?", LocalDate.now(), id);
         return R.ok();
     }
 
@@ -137,6 +146,8 @@ public class HrController {
                         + "WHERE id = ?", status, leaveDate, id);
         if ("LEFT".equals(status)) {
             jdbc.update("UPDATE sys_user SET status = 0 WHERE employee_id = ?", id);
+        } else {
+            jdbc.update("UPDATE sys_user SET status = 1 WHERE employee_id = ?", id);
         }
         jdbc.update("INSERT INTO hr_employee_change "
                         + "(employee_id, change_type, before_json, after_json, effective_date, "
@@ -322,6 +333,25 @@ public class HrController {
                             + "(SELECT 1 FROM sys_user_role WHERE user_id = ? AND role_id = ?)",
                     userId, managerRoleId, userId, managerRoleId);
         }
+    }
+
+    private void restoreEmployment(Long id) {
+        String status = jdbc.queryForObject(
+                "SELECT employment_status FROM hr_employee WHERE id = ?", String.class, id);
+        if (isLeavingStatus(status)) {
+            restoreEmployment(id, status);
+        }
+    }
+
+    private void restoreEmployment(Long id, String previousStatus) {
+        if (isLeavingStatus(previousStatus)) {
+            jdbc.update("UPDATE hr_employee SET leave_date = NULL WHERE id = ?", id);
+            jdbc.update("UPDATE sys_user SET status = 1 WHERE employee_id = ?", id);
+        }
+    }
+
+    private boolean isLeavingStatus(String status) {
+        return "LEFT".equals(status) || "LEAVING".equals(status);
     }
 
     private String nextEmployeeNo() {
