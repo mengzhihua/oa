@@ -12,8 +12,11 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Component
@@ -73,12 +76,26 @@ public class StartupService {
     }
 
     private boolean columnExists(String table, String column) {
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
-                        + "WHERE UPPER(TABLE_NAME) = UPPER(?) "
-                        + "AND UPPER(COLUMN_NAME) = UPPER(?)",
-                Integer.class, table, column);
-        return count != null && count > 0;
+        return jdbc.execute((ConnectionCallback<Boolean>) connection -> {
+            DatabaseMetaData metadata = connection.getMetaData();
+            String catalog = connection.getCatalog();
+            String schema = connection.getSchema();
+            String[] tableNames = {table, table.toUpperCase(Locale.ROOT),
+                    table.toLowerCase(Locale.ROOT)};
+            String[] columnNames = {column, column.toUpperCase(Locale.ROOT),
+                    column.toLowerCase(Locale.ROOT)};
+            for (String tableName : tableNames) {
+                for (String columnName : columnNames) {
+                    try (ResultSet result = metadata.getColumns(
+                            catalog, schema, tableName, columnName)) {
+                        if (result.next()) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        });
     }
 
     private void ensureAdmin() {

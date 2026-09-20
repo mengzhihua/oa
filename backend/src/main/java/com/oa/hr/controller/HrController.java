@@ -96,13 +96,18 @@ public class HrController {
         HrEmployee employee = toEntity(request);
         employee.setId(id);
         employeeService.updateById(employee);
+        if (request.getEmploymentStatus() != null
+                && !"LEFT".equals(request.getEmploymentStatus())
+                && !"LEAVING".equals(request.getEmploymentStatus())) {
+            jdbc.update("UPDATE hr_employee SET leave_date = NULL WHERE id = ?", id);
+        }
         return R.ok(employeeService.getById(id));
     }
 
     @PostMapping("/employees/{id}/regular")
     public R<Void> regular(@PathVariable Long id) {
         jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', "
-                + "regular_date = ? WHERE id = ?", LocalDate.now(), id);
+                + "regular_date = ?, leave_date = NULL WHERE id = ?", LocalDate.now(), id);
         return R.ok();
     }
 

@@ -195,6 +195,55 @@ public class PayrollCalcTest {
     }
 
     @Test
+    public void 旧离职日的在职员工不截断当月考勤() {
+        List<Long> existing = jdbc.query(
+                "SELECT id FROM hr_employee WHERE employee_no = 'TEST-LEFT-EARLY-001'",
+                (result, rowNum) -> result.getLong(1));
+        Long employeeId = existing.isEmpty() ? null : existing.get(0);
+        if (employeeId == null) {
+            jdbc.update("INSERT INTO hr_employee "
+                            + "(employee_no, name, dept_id, hire_date, regular_date, "
+                            + "employment_status, employee_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "TEST-LEFT-EARLY-001", "历史离职日测试员工", 2L,
+                    LocalDate.of(2024, 1, 1), LocalDate.of(2024, 4, 1),
+                    "REGULAR", "FULLTIME");
+            employeeId = jdbc.queryForObject(
+                    "SELECT id FROM hr_employee WHERE employee_no = 'TEST-LEFT-EARLY-001'",
+                    Long.class);
+        }
+        jdbc.update("UPDATE hr_employee SET employment_status = 'REGULAR', "
+                        + "leave_date = '2097-02-15' WHERE id = ?", employeeId);
+        jdbc.update("DELETE FROM pay_scheme WHERE employee_id = ?", employeeId);
+        PayScheme scheme = new PayScheme();
+        scheme.setEmployeeId(employeeId);
+        scheme.setEffectiveDate(LocalDate.of(2024, 1, 1));
+        scheme.setBaseSalary(new BigDecimal("10000.00"));
+        scheme.setPostSalary(BigDecimal.ZERO);
+        scheme.setPerfSalary(BigDecimal.ZERO);
+        scheme.setAllowancesJson("{}");
+        scheme.setSiBase(new BigDecimal("10000.00"));
+        scheme.setHfBase(new BigDecimal("10000.00"));
+        scheme.setStatus("ACTIVE");
+        schemeService.save(scheme);
+        jdbc.update("DELETE FROM att_monthly_summary WHERE employee_id = ? "
+                        + "AND year_month = '2097-03'", employeeId);
+        jdbc.update("DELETE FROM att_daily WHERE employee_id = ? "
+                        + "AND work_date >= '2097-03-01' AND work_date < '2097-04-01'",
+                employeeId);
+
+        attendanceService.generateMonthly("2097-03", null);
+
+        assertTrue(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM att_daily WHERE employee_id = ? "
+                        + "AND work_date > '2097-03-15' AND work_date <= '2097-03-31'",
+                Integer.class, employeeId) > 0);
+        assertTrue(jdbc.queryForObject(
+                "SELECT absent_days FROM att_monthly_summary "
+                        + "WHERE employee_id = ? AND year_month = '2097-03'",
+                BigDecimal.class, employeeId).compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    @Test
     public void 工资条接口补充未配置工资项目的明细() throws Exception {
         Long employeeId = jdbc.queryForObject(
                 "SELECT employee_id FROM sys_user WHERE username = 'zhangsan'", Long.class);
