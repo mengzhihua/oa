@@ -10,6 +10,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDate;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
@@ -63,8 +64,12 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (userId == null) {
             return false;
         }
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user "
-                        + "WHERE id = ? AND status = 1", Integer.class, userId);
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user u "
+                        + "LEFT JOIN hr_employee e ON e.id = u.employee_id "
+                        + "WHERE u.id = ? AND u.status = 1 "
+                        + "AND (e.id IS NULL OR e.employment_status <> 'LEAVING' "
+                        + "OR e.leave_date IS NULL OR e.leave_date >= ?)",
+                Integer.class, userId, LocalDate.now());
         return count != null && count > 0;
     }
 
