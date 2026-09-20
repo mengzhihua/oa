@@ -137,8 +137,6 @@ public class HrController {
                         + "WHERE id = ?", status, leaveDate, id);
         if ("LEFT".equals(status)) {
             jdbc.update("UPDATE sys_user SET status = 0 WHERE employee_id = ?", id);
-        } else {
-            jdbc.update("UPDATE sys_user SET status = 1 WHERE employee_id = ?", id);
         }
         jdbc.update("INSERT INTO hr_employee_change "
                         + "(employee_id, change_type, before_json, after_json, effective_date, "
