@@ -14,6 +14,7 @@ public class HrScheduler {
     }
 
     @Scheduled(cron = "${oa.hr.leave-cron:0 10 0 * * *}")
+    @Transactional
     public void scheduledExpireLeaving() {
         expireLeaving();
     }

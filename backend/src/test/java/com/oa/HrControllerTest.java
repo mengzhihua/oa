@@ -3,6 +3,7 @@ package com.oa;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oa.hr.service.HrScheduler;
+import com.oa.system.auth.PasswordHasher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -136,6 +137,34 @@ public class HrControllerTest {
             org.junit.jupiter.api.Assertions.assertEquals(0,
                     jdbc.queryForObject("SELECT status FROM sys_user WHERE employee_id = ?",
                             Integer.class, employeeId));
+        } finally {
+            jdbc.update("DELETE FROM sys_user WHERE employee_id = ?", employeeId);
+            jdbc.update("DELETE FROM hr_employee WHERE id = ?", employeeId);
+        }
+    }
+
+    @Test
+    public void 到期离职员工不能登录() throws Exception {
+        String employeeNo = "TEST-HR-LOGIN-" + System.nanoTime();
+        java.time.LocalDate yesterday = java.time.LocalDate.now().minusDays(1);
+        jdbc.update("INSERT INTO hr_employee "
+                        + "(employee_no, name, hire_date, employment_status, employee_type, leave_date) "
+                        + "VALUES (?, ?, ?, 'LEAVING', 'FULLTIME', ?)",
+                employeeNo, "到期登录测试员工", java.time.LocalDate.of(2024, 1, 1), yesterday);
+        Long employeeId = jdbc.queryForObject(
+                "SELECT id FROM hr_employee WHERE employee_no = ?", Long.class, employeeNo);
+        jdbc.update("INSERT INTO sys_user "
+                        + "(username, password_hash, real_name, employee_id, status) "
+                        + "VALUES (?, ?, ?, ?, 1)",
+                employeeNo, PasswordHasher.hash("test-password"), "到期登录测试员工", employeeId);
+        try {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(APPLICATION_JSON)
+                            .content("{\"username\":\"" + employeeNo
+                                    + "\",\"password\":\"test-password\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(400))
+                    .andExpect(jsonPath("$.msg").value("账号已停用"));
         } finally {
             jdbc.update("DELETE FROM sys_user WHERE employee_id = ?", employeeId);
             jdbc.update("DELETE FROM hr_employee WHERE id = ?", employeeId);

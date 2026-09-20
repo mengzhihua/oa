@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oa.common.BizException;
 import com.oa.system.auth.PasswordHasher;
 import com.oa.system.auth.TokenService;
+import com.oa.system.auth.UserAccessService;
 import com.oa.system.dto.LoginRequest;
 import com.oa.system.entity.SysMenu;
 import com.oa.system.entity.SysRole;
@@ -31,16 +32,19 @@ public class AuthService {
     private final SysRoleMenuMapper roleMenuMapper;
     private final SysMenuMapper menuMapper;
     private final TokenService tokenService;
+    private final UserAccessService userAccessService;
 
     public AuthService(SysUserService userService, SysRoleMapper roleMapper,
                        SysUserRoleMapper userRoleMapper, SysMenuMapper menuMapper,
-                       SysRoleMenuMapper roleMenuMapper, TokenService tokenService) {
+                       SysRoleMenuMapper roleMenuMapper, TokenService tokenService,
+                       UserAccessService userAccessService) {
         this.userService = userService;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.roleMenuMapper = roleMenuMapper;
         this.menuMapper = menuMapper;
         this.tokenService = tokenService;
+        this.userAccessService = userAccessService;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -49,6 +53,9 @@ public class AuthService {
                 .eq(SysUser::getStatus, 1));
         if (user == null || !PasswordHasher.verify(request.getPassword(), user.getPasswordHash())) {
             throw new BizException("用户名或密码错误");
+        }
+        if (!userAccessService.isActive(user.getId())) {
+            throw new BizException("账号已停用");
         }
         user.setLastLoginAt(LocalDateTime.now());
         userService.updateById(user);
