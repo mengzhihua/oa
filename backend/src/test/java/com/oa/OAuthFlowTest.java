@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -14,6 +15,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.Base64;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -32,6 +34,9 @@ public class OAuthFlowTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     public void OAuth全链路与安全校验() throws Exception {
@@ -117,6 +122,41 @@ public class OAuthFlowTest {
                         .param("client_secret", "wrong"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("invalid_client"));
+    }
+
+    @Test
+    public void 账号失效后刷新令牌兑换失败() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/oauth/token")
+                        .param("grant_type", "password")
+                        .param("client_id", "sap-client")
+                        .param("client_secret", "sap-client-secret")
+                        .param("username", "zhangsan")
+                        .param("password", "emp123"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String refreshToken = objectMapper.readTree(
+                result.getResponse().getContentAsString()).get("refresh_token").asText();
+        Long employeeId = jdbc.queryForObject(
+                "SELECT employee_id FROM sys_user WHERE username = 'zhangsan'",
+                Long.class);
+        String oldStatus = jdbc.queryForObject(
+                "SELECT employment_status FROM hr_employee WHERE id = ?",
+                String.class, employeeId);
+        try {
+            jdbc.update("UPDATE hr_employee SET employment_status = 'LEAVING', "
+                            + "leave_date = ? WHERE id = ?",
+                    LocalDate.now().minusDays(1), employeeId);
+            mockMvc.perform(post("/api/oauth/token")
+                            .param("grant_type", "refresh_token")
+                            .param("client_id", "sap-client")
+                            .param("client_secret", "sap-client-secret")
+                            .param("refresh_token", refreshToken))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("invalid_grant"));
+        } finally {
+            jdbc.update("UPDATE hr_employee SET employment_status = ?, leave_date = NULL "
+                            + "WHERE id = ?", oldStatus, employeeId);
+        }
     }
 
     @Test

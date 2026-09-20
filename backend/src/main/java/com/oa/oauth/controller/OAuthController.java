@@ -322,6 +322,9 @@ public class OAuthController {
 
     private Map<String, Object> issue(Long userId, String clientId, String scope,
                                       Map<String, Object> client) {
+        if (userId != null && !userAccessService.isActive(userId)) {
+            throw new BizException("账号已停用");
+        }
         int accessTtl = Integer.parseInt(string(client, "ACCESS_TOKEN_TTL"));
         int refreshTtl = Integer.parseInt(string(client, "REFRESH_TOKEN_TTL"));
         String username = userId == null ? "client" : jdbc.queryForObject(
@@ -356,9 +359,6 @@ public class OAuthController {
             throw new BizException("用户名或密码错误");
         }
         Long userId = number(user, "ID");
-        if (!userAccessService.isActive(userId)) {
-            throw new BizException("账号已停用");
-        }
         return issue(userId, clientId, requestedScope(form.get("scope"), client), client);
     }
 
