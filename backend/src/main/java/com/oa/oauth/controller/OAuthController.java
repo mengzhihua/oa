@@ -8,6 +8,7 @@ import com.oa.system.auth.AuthInterceptor;
 import com.oa.system.auth.CurrentUser;
 import com.oa.system.auth.PasswordHasher;
 import com.oa.system.auth.TokenService;
+import com.oa.system.auth.UserAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,7 +27,6 @@ import javax.validation.Valid;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Collections;
@@ -42,10 +42,13 @@ public class OAuthController {
     private static final Logger log = LoggerFactory.getLogger(OAuthController.class);
     private final JdbcTemplate jdbc;
     private final TokenService tokenService;
+    private final UserAccessService userAccessService;
 
-    public OAuthController(JdbcTemplate jdbc, TokenService tokenService) {
+    public OAuthController(JdbcTemplate jdbc, TokenService tokenService,
+                           UserAccessService userAccessService) {
         this.jdbc = jdbc;
         this.tokenService = tokenService;
+        this.userAccessService = userAccessService;
     }
 
     @GetMapping("/authorize")
@@ -352,8 +355,11 @@ public class OAuthController {
         if (!PasswordHasher.verify(form.get("password"), value(user, "PASSWORD_HASH"))) {
             throw new BizException("用户名或密码错误");
         }
-        return issue(number(user, "ID"), clientId, requestedScope(form.get("scope"), client),
-                client);
+        Long userId = number(user, "ID");
+        if (!userAccessService.isActive(userId)) {
+            throw new BizException("账号已停用");
+        }
+        return issue(userId, clientId, requestedScope(form.get("scope"), client), client);
     }
 
     private TokenService.Principal validOauthToken(String token) {
@@ -372,13 +378,7 @@ public class OAuthController {
         if (userId == null) {
             return true;
         }
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_user u "
-                        + "LEFT JOIN hr_employee e ON e.id = u.employee_id "
-                        + "WHERE u.id = ? AND u.status = 1 "
-                        + "AND (e.id IS NULL OR e.employment_status <> 'LEAVING' "
-                        + "OR e.leave_date IS NULL OR e.leave_date >= ?)",
-                Integer.class, userId, LocalDate.now());
-        return count != null && count > 0;
+        return userAccessService.isActive(userId);
     }
 
     private String tokenScope(String token) {
