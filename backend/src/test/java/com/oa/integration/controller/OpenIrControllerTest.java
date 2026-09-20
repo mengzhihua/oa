@@ -26,6 +26,24 @@ public class OpenIrControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
+    public void snapshotsIncludeSeededPendingTask() throws Exception {
+        String snapshots = mockMvc.perform(get("/api/open/ir/snapshots")
+                        .header("X-Api-Key", "oa-open-key"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString();
+        boolean pending = false;
+        for (JsonNode row : objectMapper.readTree(snapshots).get("data").get("snapshots")) {
+            if ("WF_TASK".equals(row.path("dataType").asText())
+                    && "PENDING".equals(row.path("status").asText())) {
+                pending = true;
+                break;
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(pending, "启动后应有 IR 演示待办");
+    }
+
+    @Test
     public void openApiStartsWorkflowThenApprovesAssignedTask() throws Exception {
         mockMvc.perform(post("/api/open/ir/actions")
                         .header("X-Api-Key", "oa-open-key")
