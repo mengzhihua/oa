@@ -2,7 +2,7 @@ package com.oa.integration;
 
 import com.oa.common.BizException;
 import com.oa.common.R;
-import com.oa.workflow.WorkflowService;
+import com.oa.workflow.service.WorkflowService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
