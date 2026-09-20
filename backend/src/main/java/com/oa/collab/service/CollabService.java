@@ -10,7 +10,7 @@ import com.oa.collab.entity.OaMessage;
 import com.oa.collab.entity.OaNotice;
 import com.oa.collab.entity.OaNoticeRead;
 import com.oa.common.BizException;
-import com.oa.workflow.WorkflowService;
+import com.oa.workflow.service.WorkflowService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

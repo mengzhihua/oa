@@ -1,7 +1,7 @@
-package com.oa;
+package com.oa.workflow.callback;
 
 import com.oa.attendance.service.AttendanceService;
-import com.oa.workflow.WorkflowService;
+import com.oa.workflow.service.WorkflowService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

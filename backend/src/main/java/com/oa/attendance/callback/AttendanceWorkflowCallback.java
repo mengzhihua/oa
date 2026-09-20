@@ -1,7 +1,7 @@
-package com.oa.attendance;
+package com.oa.attendance.callback;
 
 import com.oa.attendance.service.AttendanceService;
-import com.oa.workflow.WorkflowCallback;
+import com.oa.workflow.callback.WorkflowCallback;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 

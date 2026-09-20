@@ -1,4 +1,4 @@
-package com.oa.collab;
+package com.oa.collab.controller;
 
 import com.oa.collab.dto.ExpenseRequest;
 import com.oa.collab.dto.MeetingBookingRequest;

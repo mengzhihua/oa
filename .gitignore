@@ -5,3 +5,5 @@ data/
 .idea/
 *.iml
 .DS_Store
+release/
+backend/src/main/resources/static/

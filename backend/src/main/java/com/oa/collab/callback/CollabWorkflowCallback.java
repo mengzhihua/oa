@@ -1,8 +1,8 @@
-package com.oa.collab;
+package com.oa.collab.callback;
 
 import com.oa.collab.entity.OaExpense;
 import com.oa.collab.service.OaExpenseService;
-import com.oa.workflow.WorkflowCallback;
+import com.oa.workflow.callback.WorkflowCallback;
 import org.springframework.stereotype.Component;
 
 @Component
