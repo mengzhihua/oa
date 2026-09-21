@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,5 +46,24 @@ public class WorkflowControllerTest {
                                 + "\"title\":\"伪造请假\",\"form\":{}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code", is(400)));
+    }
+
+    @Test
+    public void 待办列表带出申请标题和节点名() throws Exception {
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode body = objectMapper.readTree(login.getResponse().getContentAsString());
+        String token = body.get("data").get("token").asText();
+
+        mockMvc.perform(get("/api/workflow/tasks/todo")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(0)))
+                .andExpect(jsonPath("$.data[0].instanceTitle", notNullValue()))
+                .andExpect(jsonPath("$.data[0].instanceNo", notNullValue()))
+                .andExpect(jsonPath("$.data[0].nodeName", notNullValue()));
     }
 }

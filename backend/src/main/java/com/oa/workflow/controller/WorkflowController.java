@@ -192,12 +192,49 @@ public class WorkflowController {
         view.setStatus(task.getStatus());
         view.setComment(task.getComment());
         view.setHandledAt(task.getHandledAt());
+        fillInstance(view, task);
         return view;
     }
 
-    private static String text(Map<String, Object> row, String key) {
-        Object value = row.get(key);
-        return value == null ? null : String.valueOf(value);
+    private void fillInstance(WorkflowTaskView view, WfTask task) {
+        if (task.getInstanceId() == null) {
+            return;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT i.title AS title, i.instance_no AS instance_no, "
+                        + "i.business_id AS business_id, i.business_type AS business_type, "
+                        + "n.name AS node_name "
+                        + "FROM wf_instance i "
+                        + "LEFT JOIN wf_node n ON n.definition_id = i.definition_id AND n.seq = ? "
+                        + "WHERE i.id = ?",
+                task.getNodeSeq(), task.getInstanceId());
+        if (rows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> row = rows.get(0);
+        view.setInstanceTitle(text(row, "TITLE", "title"));
+        view.setInstanceNo(text(row, "INSTANCE_NO", "instance_no"));
+        view.setBusinessId(text(row, "BUSINESS_ID", "business_id"));
+        view.setBusinessType(text(row, "BUSINESS_TYPE", "business_type"));
+        view.setNodeName(text(row, "NODE_NAME", "node_name"));
+    }
+
+    private static String text(Map<String, Object> row, String... keys) {
+        for (String key : keys) {
+            Object value = row.get(key);
+            if (value == null) {
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                        value = entry.getValue();
+                        break;
+                    }
+                }
+            }
+            if (value != null) {
+                return String.valueOf(value);
+            }
+        }
+        return null;
     }
 
     private static Long number(Map<String, Object> row, String key) {

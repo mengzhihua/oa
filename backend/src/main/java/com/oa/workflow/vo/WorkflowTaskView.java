@@ -8,7 +8,12 @@ import java.time.LocalDateTime;
 public class WorkflowTaskView {
     private Long id;
     private Long instanceId;
+    private String instanceNo;
+    private String instanceTitle;
+    private String businessId;
+    private String businessType;
     private Integer nodeSeq;
+    private String nodeName;
     private Long approverUserId;
     private String approverName;
     private String status;
