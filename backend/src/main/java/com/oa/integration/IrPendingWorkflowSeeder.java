@@ -27,12 +27,10 @@ public class IrPendingWorkflowSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         Integer pending = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM wf_task WHERE status = 'PENDING'", Integer.class);
-        if (pending != null && pending > 0) {
-            return;
-        }
         Integer existing = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM wf_instance WHERE business_id = 'IR-DEMO-WF'", Integer.class);
-        if (existing != null && existing > 0) {
+        if ((pending != null && pending > 0) || (existing != null && existing > 0)) {
+            reassignDemoTaskToAdmin();
             return;
         }
         List<Map<String, Object>> users = jdbc.queryForList(
