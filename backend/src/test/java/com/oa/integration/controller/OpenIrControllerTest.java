@@ -113,12 +113,20 @@ public class OpenIrControllerTest {
         }
         org.junit.jupiter.api.Assertions.assertNotNull(taskId, "应产生 OA 待办");
 
+        String approve = "{\"type\":\"OA_APPROVE_TASK\",\"targetKey\":\"" + taskId
+                + "\",\"idempotencyKey\":\"OA-APR-1\","
+                + "\"params\":{\"taskId\":\"" + taskId
+                + "\",\"comment\":\"IR 控制塔系统审批\"}}";
+        mockMvc.perform(post("/api/open/ir/actions")
+                        .header("X-Api-Key", "oa-open-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(approve))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
         String approved = mockMvc.perform(post("/api/open/ir/actions")
                         .header("X-Api-Key", "oa-open-key")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"OA_APPROVE_TASK\",\"targetKey\":\"" + taskId
-                                + "\",\"params\":{\"taskId\":\"" + taskId
-                                + "\",\"comment\":\"IR 控制塔系统审批\"}}"))
+                        .content(approve))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn().getResponse().getContentAsString();
