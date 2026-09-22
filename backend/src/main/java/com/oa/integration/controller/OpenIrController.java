@@ -18,6 +18,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /** IR 控制塔：审批实例 / 待办快照，以及发起采购审批。 */
 @RestController
@@ -26,6 +28,7 @@ public class OpenIrController {
     private final JdbcTemplate jdbc;
     private final WorkflowService workflowService;
     private final String apiKey;
+    private final ConcurrentHashMap<String, Object> actionCache = new ConcurrentHashMap<String, Object>();
 
     public OpenIrController(
             JdbcTemplate jdbc,
@@ -51,13 +54,25 @@ public class OpenIrController {
                     str(cell(instance, "title", "TITLE"))));
         }
         for (Map<String, Object> task : jdbc.queryForList(
-                "SELECT * FROM wf_task WHERE status = 'PENDING' ORDER BY id DESC")) {
+                "SELECT t.id AS id, t.status AS status, t.instance_id AS instance_id, "
+                        + "i.title AS instance_title, i.instance_no AS instance_no, "
+                        + "i.business_id AS business_id, n.name AS node_name "
+                        + "FROM wf_task t "
+                        + "LEFT JOIN wf_instance i ON i.id = t.instance_id "
+                        + "LEFT JOIN wf_node n ON n.definition_id = i.definition_id "
+                        + "AND n.seq = t.node_seq "
+                        + "WHERE t.status = 'PENDING' ORDER BY t.id DESC")) {
+            Object taskId = cell(task, "id", "ID");
+            String instanceTitle = str(cell(task, "instance_title", "INSTANCE_TITLE"));
+            String nodeName = str(cell(task, "node_name", "NODE_NAME"));
             rows.add(row("WF_TASK",
-                    String.valueOf(cell(task, "id", "ID")),
+                    String.valueOf(taskId),
                     str(cell(task, "status", "STATUS")),
-                    String.valueOf(cell(task, "instance_id", "INSTANCE_ID")),
-                    BigDecimal.ONE, null, null,
-                    "待办 " + cell(task, "id", "ID")));
+                    first(str(cell(task, "business_id", "BUSINESS_ID")),
+                            str(cell(task, "instance_no", "INSTANCE_NO"))),
+                    BigDecimal.ONE, null,
+                    str(cell(task, "instance_no", "INSTANCE_NO")),
+                    taskTitle(instanceTitle, nodeName, taskId)));
         }
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("system", "OA");
@@ -75,33 +90,71 @@ public class OpenIrController {
         @SuppressWarnings("unchecked")
         Map<String, Object> params = body.get("params") instanceof Map
                 ? (Map<String, Object>) body.get("params") : new LinkedHashMap<String, Object>();
-        if ("OA_START_WORKFLOW".equals(type)) {
-            String code = first(str(params.get("definitionCode")), str(params.get("code")), "GENERAL");
-            String title = first(str(params.get("title")), "IR 控制塔审批 " + targetKey);
-            Long applicant = applicantId();
-            Map<String, Object> form = params.get("form") instanceof Map
-                    ? (Map<String, Object>) params.get("form")
-                    : Collections.singletonMap("content", targetKey);
-            return R.ok(workflowService.start(
-                    code, applicant, title, form,
-                    first(str(params.get("businessType")), "IR"),
-                    first(str(params.get("businessId")), targetKey)));
-        }
-        if ("OA_APPROVE_TASK".equals(type) || "OA_COMPLETE_TASK".equals(type)) {
-            Long taskId = taskId(first(str(params.get("taskId")), targetKey));
-            Map<String, Object> task = one("SELECT * FROM wf_task WHERE id = ?", taskId);
-            if (task == null) {
-                throw new BizException("待办不存在: " + taskId);
+        return R.ok(executeOnce(cacheKey(type, targetKey, body.get("idempotencyKey")), () -> {
+            if ("OA_START_WORKFLOW".equals(type)) {
+                String code = first(str(params.get("definitionCode")), str(params.get("code")), "GENERAL");
+                String title = first(str(params.get("title")), "IR 控制塔审批 " + targetKey);
+                Long applicant = applicantId();
+                Map<String, Object> form = params.get("form") instanceof Map
+                        ? (Map<String, Object>) params.get("form")
+                        : Collections.singletonMap("content", targetKey);
+                return workflowService.start(
+                        code, applicant, title, form,
+                        first(str(params.get("businessType")), "IR"),
+                        first(str(params.get("businessId")), targetKey));
             }
-            Object approver = cell(task, "approver_user_id", "APPROVER_USER_ID");
-            if (!(approver instanceof Number)) {
-                throw new BizException("待办缺少审批人: " + taskId);
+            if ("OA_APPROVE_TASK".equals(type) || "OA_COMPLETE_TASK".equals(type)) {
+                Long taskId = taskId(first(str(params.get("taskId")), targetKey));
+                Map<String, Object> task = one("SELECT * FROM wf_task WHERE id = ?", taskId);
+                if (task == null) {
+                    throw new BizException("待办不存在: " + taskId);
+                }
+                Object approver = cell(task, "approver_user_id", "APPROVER_USER_ID");
+                if (!(approver instanceof Number)) {
+                    throw new BizException("待办缺少审批人: " + taskId);
+                }
+                workflowService.approve(taskId, ((Number) approver).longValue(),
+                        first(str(params.get("comment")), "IR 控制塔系统审批"));
+                return one("SELECT * FROM wf_task WHERE id = ?", taskId);
             }
-            workflowService.approve(taskId, ((Number) approver).longValue(),
-                    first(str(params.get("comment")), "IR 控制塔系统审批"));
-            return R.ok(one("SELECT * FROM wf_task WHERE id = ?", taskId));
+            throw new BizException("不支持的 IR 指令: " + type);
+        }));
+    }
+
+    private Object executeOnce(String cacheKey, Supplier<Object> work) {
+        if (cacheKey == null) {
+            return work.get();
         }
-        throw new BizException("不支持的 IR 指令: " + type);
+        Object cached = actionCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (actionCache) {
+            cached = actionCache.get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+            Object created = work.get();
+            actionCache.put(cacheKey, created);
+            return created;
+        }
+    }
+
+    private static String cacheKey(String type, String targetKey, Object idempotencyKey) {
+        String key = str(idempotencyKey);
+        if (key == null || key.trim().isEmpty() || "null".equals(key)) {
+            return null;
+        }
+        return type + "|" + (targetKey == null ? "" : targetKey) + "|" + key.trim();
+    }
+
+    private static String taskTitle(String instanceTitle, String nodeName, Object taskId) {
+        String title = first(instanceTitle);
+        if (title == null) {
+            return "待办 " + taskId;
+        }
+        String node = first(nodeName);
+        return node == null ? title : title + " · " + node;
     }
 
     private Long taskId(String value) {
