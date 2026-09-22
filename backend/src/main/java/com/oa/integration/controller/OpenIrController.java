@@ -121,6 +121,43 @@ public class OpenIrController {
         }));
     }
 
+    @PostMapping("/start-workflow")
+    public R<Object> startWorkflow(
+            @RequestHeader(value = "X-Api-Key", required = false) String key,
+            @RequestBody Map<String, Object> body) {
+        return typedAction(key, body, "OA_START_WORKFLOW", "businessId");
+    }
+
+    @PostMapping("/approve-task")
+    public R<Object> approveTask(
+            @RequestHeader(value = "X-Api-Key", required = false) String key,
+            @RequestBody Map<String, Object> body) {
+        return typedAction(key, body, "OA_APPROVE_TASK", "taskId");
+    }
+
+    private R<Object> typedAction(
+            String key, Map<String, Object> body, String type, String... altKeys) {
+        if (body == null) {
+            body = new LinkedHashMap<String, Object>();
+        }
+        body.put("type", type);
+        if (blank(body.get("targetKey"))) {
+            for (String altKey : altKeys) {
+                Object value = body.get(altKey);
+                if (!blank(value)) {
+                    body.put("targetKey", value);
+                    break;
+                }
+            }
+        }
+        return actions(key, body);
+    }
+
+    private static boolean blank(Object value) {
+        return value == null || String.valueOf(value).trim().isEmpty()
+                || "null".equals(String.valueOf(value));
+    }
+
     private Object executeOnce(String cacheKey, Supplier<Object> work) {
         if (cacheKey == null) {
             return work.get();

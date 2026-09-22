@@ -86,6 +86,18 @@ public class OpenIrControllerTest {
         String replayNo = replayData.has("instance_no") ? replayData.get("instance_no").asText()
                 : replayData.get("INSTANCE_NO").asText();
         org.junit.jupiter.api.Assertions.assertEquals(firstNo, replayNo);
+
+        String dedicatedStart = mockMvc.perform(post("/api/open/ir/start-workflow")
+                        .header("X-Api-Key", "oa-open-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString();
+        JsonNode dedicatedData = objectMapper.readTree(dedicatedStart).get("data");
+        String dedicatedNo = dedicatedData.has("instance_no") ? dedicatedData.get("instance_no").asText()
+                : dedicatedData.get("INSTANCE_NO").asText();
+        org.junit.jupiter.api.Assertions.assertEquals(firstNo, dedicatedNo);
     }
 
     @Test
@@ -134,5 +146,17 @@ public class OpenIrControllerTest {
         String status = task.has("status") ? task.get("status").asText()
                 : task.get("STATUS").asText();
         org.junit.jupiter.api.Assertions.assertEquals("APPROVED", status);
+
+        String dedicatedApprove = mockMvc.perform(post("/api/open/ir/approve-task")
+                        .header("X-Api-Key", "oa-open-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"taskId\":\"" + taskId + "\",\"idempotencyKey\":\"OA-APR-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString();
+        JsonNode dedicatedTask = objectMapper.readTree(dedicatedApprove).get("data");
+        String dedicatedStatus = dedicatedTask.has("status") ? dedicatedTask.get("status").asText()
+                : dedicatedTask.get("STATUS").asText();
+        org.junit.jupiter.api.Assertions.assertEquals("APPROVED", dedicatedStatus);
     }
 }
