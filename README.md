@@ -5,6 +5,8 @@ Spring Boot + MyBatis-Plus 后端与 Vue 3 + Element Plus 前端，覆盖从员�
 打卡和请假，到审批、工资核算、公告沟通和工作台分析的完整闭环。系统提供 H2
 开箱即用模式，也支持 MySQL 部署和集团系统 OAuth2.0 统一认证接入。
 
+项目亮点见 [docs/项目亮点.md](docs/项目亮点.md)。
+
 ## 能力定位与竞品映射
 
 | OA 能力 | 用友 / NC、U8 | 金蝶 / 云星空、s-HR | 泛微 / e-cology | 本系统 |
