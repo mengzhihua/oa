@@ -7,6 +7,8 @@ Spring Boot + MyBatis-Plus 后端与 Vue 3 + Element Plus 前端，覆盖从员�
 
 项目亮点见 [docs/项目亮点.md](docs/项目亮点.md)。
 
+怎么用、亮点和适用场景见 [docs/图文导读.md](docs/图文导读.md)。
+
 ## 能力定位与竞品映射
 
 | OA 能力 | 用友 / NC、U8 | 金蝶 / 云星空、s-HR | 泛微 / e-cology | 本系统 |
