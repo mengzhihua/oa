@@ -318,6 +318,12 @@ A：设置数据库环境变量并使用 `mysql` profile；该 profile 使用
 A：至少修改管理员密码、数据库密码、Token 签名密钥、OAuth client secret、
 CORS 来源，并关闭不必要的 H2 控制台和演示初始化配置。
 
+## 控制塔对接
+
+审批实例和待办快照，以及发起审批、同意待办，见 [技术方案](docs/技术方案.md)。
+
+这些指令必须带 API Key：`/api/open/ir/snapshots`、`/actions`、`/start-workflow`、`/approve-task`。通用流程的登录发起口不允许带业务单号，控制塔不走那条口。
+
 ## 发布包（开箱即用）
 
 前端生产构建打进 Spring Boot 可执行 JAR。三种用法：
