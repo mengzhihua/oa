@@ -142,6 +142,8 @@ public class OAuthFlowTest {
         String oldStatus = jdbc.queryForObject(
                 "SELECT employment_status FROM hr_employee WHERE id = ?",
                 String.class, employeeId);
+        LocalDate oldLeaveDate = jdbc.queryForObject(
+                "SELECT leave_date FROM hr_employee WHERE id = ?", LocalDate.class, employeeId);
         try {
             jdbc.update("UPDATE hr_employee SET employment_status = 'LEAVING', "
                             + "leave_date = ? WHERE id = ?",
@@ -154,9 +156,16 @@ public class OAuthFlowTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error").value("invalid_grant"));
         } finally {
-            jdbc.update("UPDATE hr_employee SET employment_status = ?, leave_date = NULL "
-                            + "WHERE id = ?", oldStatus, employeeId);
+            jdbc.update("UPDATE hr_employee SET employment_status = ?, leave_date = ? "
+                            + "WHERE id = ?", oldStatus, oldLeaveDate, employeeId);
         }
+        mockMvc.perform(post("/api/oauth/token")
+                        .param("grant_type", "refresh_token")
+                        .param("client_id", "sap-client")
+                        .param("client_secret", "sap-client-secret")
+                        .param("refresh_token", refreshToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists());
     }
 
     @Test
