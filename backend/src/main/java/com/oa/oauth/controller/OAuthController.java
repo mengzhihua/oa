@@ -297,6 +297,10 @@ public class OAuthController {
             }
         }
         validateScope(value(code, "SCOPE"), client);
+        Long userId = number(code, "USER_ID");
+        if (userId != null && !userAccessService.isActive(userId)) {
+            throw new BizException("账号已停用");
+        }
         int updated = jdbc.update("UPDATE oauth_authorization_code SET used = 1 "
                         + "WHERE id = ? AND used = 0", value(code, "ID"));
         if (updated != 1) {
@@ -315,6 +319,10 @@ public class OAuthController {
             throw new BizException("刷新令牌无效或已过期");
         }
         Map<String, Object> token = rows.get(0);
+        Long userId = number(token, "USER_ID");
+        if (userId != null && !userAccessService.isActive(userId)) {
+            throw new BizException("账号已停用");
+        }
         validateScope(value(token, "SCOPE"), client);
         jdbc.update("UPDATE oauth_token SET revoked = 1 WHERE id = ?", value(token, "ID"));
         return issue(number(token, "USER_ID"), clientId, value(token, "SCOPE"), client);
