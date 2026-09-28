@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,12 +45,15 @@ public class OAuthController {
     private final JdbcTemplate jdbc;
     private final TokenService tokenService;
     private final UserAccessService userAccessService;
+    private final TransactionTemplate transactionTemplate;
 
     public OAuthController(JdbcTemplate jdbc, TokenService tokenService,
-                           UserAccessService userAccessService) {
+                           UserAccessService userAccessService,
+                           PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.tokenService = tokenService;
         this.userAccessService = userAccessService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @GetMapping("/authorize")
@@ -94,43 +99,45 @@ public class OAuthController {
     public ResponseEntity<?> token(@RequestParam Map<String, String> form,
                                    HttpServletRequest request) {
         try {
-            String clientId = form.get("client_id");
-            String clientSecret = form.get("client_secret");
-            String basic = request.getHeader("Authorization");
-            if ((clientId == null || clientSecret == null)
-                    && basic != null && basic.startsWith("Basic ")) {
-                String value = new String(Base64.getDecoder().decode(basic.substring(6)),
-                        StandardCharsets.UTF_8);
-                int split = value.indexOf(':');
-                clientId = value.substring(0, split);
-                clientSecret = value.substring(split + 1);
-            }
-            Map<String, Object> client = client(clientId);
-            if (client == null || !PasswordHasher.verify(clientSecret,
-                    string(client, "CLIENT_SECRET_HASH"))) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(error("invalid_client", "客户端认证失败"));
-            }
-            String grantType = form.get("grant_type");
-            if (!contains(string(client, "GRANT_TYPES"), grantType)) {
+            return transactionTemplate.execute(status -> {
+                String clientId = form.get("client_id");
+                String clientSecret = form.get("client_secret");
+                String basic = request.getHeader("Authorization");
+                if ((clientId == null || clientSecret == null)
+                        && basic != null && basic.startsWith("Basic ")) {
+                    String value = new String(Base64.getDecoder().decode(basic.substring(6)),
+                            StandardCharsets.UTF_8);
+                    int split = value.indexOf(':');
+                    clientId = value.substring(0, split);
+                    clientSecret = value.substring(split + 1);
+                }
+                Map<String, Object> client = client(clientId);
+                if (client == null || !PasswordHasher.verify(clientSecret,
+                        string(client, "CLIENT_SECRET_HASH"))) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(error("invalid_client", "客户端认证失败"));
+                }
+                String grantType = form.get("grant_type");
+                if (!contains(string(client, "GRANT_TYPES"), grantType)) {
+                    return ResponseEntity.badRequest()
+                            .body(error("unauthorized_client", "客户端未授权该授权类型"));
+                }
+                if ("authorization_code".equals(grantType)) {
+                    return ResponseEntity.ok(exchangeCode(form, clientId, client));
+                }
+                if ("refresh_token".equals(grantType)) {
+                    return ResponseEntity.ok(refresh(form.get("refresh_token"), clientId, client));
+                }
+                if ("client_credentials".equals(grantType)) {
+                    return ResponseEntity.ok(issue(null, clientId,
+                            requestedScope(form.get("scope"), client), client));
+                }
+                if ("password".equals(grantType)) {
+                    return ResponseEntity.ok(passwordGrant(form, clientId, client));
+                }
                 return ResponseEntity.badRequest()
-                        .body(error("unauthorized_client", "客户端未授权该授权类型"));
-            }
-            if ("authorization_code".equals(grantType)) {
-                return ResponseEntity.ok(exchangeCode(form, clientId, client));
-            }
-            if ("refresh_token".equals(grantType)) {
-                return ResponseEntity.ok(refresh(form.get("refresh_token"), clientId, client));
-            }
-            if ("client_credentials".equals(grantType)) {
-                return ResponseEntity.ok(issue(null, clientId, requestedScope(form.get("scope"), client),
-                        client));
-            }
-            if ("password".equals(grantType)) {
-                return ResponseEntity.ok(passwordGrant(form, clientId, client));
-            }
-            return ResponseEntity.badRequest()
-                    .body(error("unsupported_grant_type", "不支持的授权类型"));
+                        .body(error("unsupported_grant_type", "不支持的授权类型"));
+            });
         } catch (Exception exception) {
             return ResponseEntity.badRequest()
                     .body(error("invalid_grant", exception.getMessage()));
