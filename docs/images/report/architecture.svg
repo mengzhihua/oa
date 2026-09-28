@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 620" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14">
+  <style>
+    .box{fill:#fff;stroke:#3a6ea5;stroke-width:1.5;rx:8}
+    .layer{fill:#f4f7fb;stroke:#c7d4e5;stroke-width:1;rx:12}
+    .title{font-size:16px;font-weight:700;fill:#1f3b5c}
+    .t{fill:#233;}
+    .small{font-size:12px;fill:#556}
+    .ext{fill:#fff7e6;stroke:#d9932a}
+  </style>
+  <text x="550" y="32" text-anchor="middle" class="title" font-size="20">集团 OA 协同办公平台 · 总体技术架构</text>
+
+  <rect x="30" y="55" width="1040" height="90" class="layer"/>
+  <text x="45" y="78" class="title">接入层</text>
+  <rect x="60" y="90" width="200" height="40" class="box"/><text x="160" y="115" text-anchor="middle" class="t">员工 / HR / 财务 / 主管（浏览器）</text>
+  <rect x="290" y="90" width="200" height="40" class="box ext"/><text x="390" y="115" text-anchor="middle" class="t">SAP · SRM · CRM · WMS（SSO）</text>
+  <rect x="520" y="90" width="200" height="40" class="box ext"/><text x="620" y="115" text-anchor="middle" class="t">控制塔（Open IR, X-Api-Key）</text>
+  <rect x="750" y="90" width="290" height="40" class="box"/><text x="895" y="115" text-anchor="middle" class="t">GitHub Actions 发布包（Linux/macOS/Windows）</text>
+
+  <rect x="30" y="165" width="1040" height="90" class="layer"/>
+  <text x="45" y="188" class="title">前端层 · Vue 3 + Element Plus + Vite（5176）</text>
+  <rect x="60" y="200" width="150" height="40" class="box"/><text x="135" y="225" text-anchor="middle" class="t">工作台</text>
+  <rect x="225" y="200" width="150" height="40" class="box"/><text x="300" y="225" text-anchor="middle" class="t">组织人事</text>
+  <rect x="390" y="200" width="150" height="40" class="box"/><text x="465" y="225" text-anchor="middle" class="t">考勤管理</text>
+  <rect x="555" y="200" width="150" height="40" class="box"/><text x="630" y="225" text-anchor="middle" class="t">审批中心</text>
+  <rect x="720" y="200" width="150" height="40" class="box"/><text x="795" y="225" text-anchor="middle" class="t">工资管理</text>
+  <rect x="885" y="200" width="155" height="40" class="box"/><text x="962" y="225" text-anchor="middle" class="t">协同 / 系统管理</text>
+
+  <rect x="30" y="275" width="1040" height="210" class="layer"/>
+  <text x="45" y="298" class="title">后端层 · Java 8 + Spring Boot 2.7 + MyBatis-Plus（8086）</text>
+  <rect x="60" y="312" width="980" height="40" class="box"/>
+  <text x="550" y="337" text-anchor="middle" class="t">统一入口：AuthInterceptor（Token 校验 → UserAccessService 账号有效性）→ RBAC 权限 → 操作日志</text>
+  <rect x="60" y="370" width="150" height="46" class="box"/><text x="135" y="389" text-anchor="middle" class="t">system</text><text x="135" y="406" text-anchor="middle" class="small">用户/角色/菜单/字典</text>
+  <rect x="225" y="370" width="150" height="46" class="box"/><text x="300" y="389" text-anchor="middle" class="t">hr</text><text x="300" y="406" text-anchor="middle" class="small">组织/员工/合同/异动</text>
+  <rect x="390" y="370" width="150" height="46" class="box"/><text x="465" y="389" text-anchor="middle" class="t">attendance</text><text x="465" y="406" text-anchor="middle" class="small">班次/排班/打卡/月结</text>
+  <rect x="555" y="370" width="150" height="46" class="box"/><text x="630" y="389" text-anchor="middle" class="t">workflow</text><text x="630" y="406" text-anchor="middle" class="small">流程定义/实例/待办</text>
+  <rect x="720" y="370" width="150" height="46" class="box"/><text x="795" y="389" text-anchor="middle" class="t">payroll</text><text x="795" y="406" text-anchor="middle" class="small">方案/核算/个税/发放</text>
+  <rect x="885" y="370" width="155" height="46" class="box"/><text x="962" y="389" text-anchor="middle" class="t">collab</text><text x="962" y="406" text-anchor="middle" class="small">公告/消息/日程/会议/报销</text>
+  <rect x="60" y="430" width="480" height="40" class="box"/><text x="300" y="455" text-anchor="middle" class="t">oauth：授权码 + PKCE / 密码 / 刷新 / 客户端凭据 · introspect · revoke</text>
+  <rect x="555" y="430" width="485" height="40" class="box"/><text x="797" y="455" text-anchor="middle" class="t">open：Open IR 快照读取 / 发起流程 / 审批待办（幂等键）</text>
+
+  <rect x="30" y="505" width="1040" height="95" class="layer"/>
+  <text x="45" y="528" class="title">数据与运行层</text>
+  <rect x="60" y="545" width="300" height="40" class="box"/><text x="210" y="570" text-anchor="middle" class="t">H2 文件库（默认，开箱即用）</text>
+  <rect x="390" y="545" width="300" height="40" class="box"/><text x="540" y="570" text-anchor="middle" class="t">MySQL profile + Docker Compose</text>
+  <rect x="720" y="545" width="320" height="40" class="box"/><text x="880" y="570" text-anchor="middle" class="t">schema.sql 47 张表 · 定时任务（离职到期停用）</text>
+</svg>

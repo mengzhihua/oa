@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 560" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3a6ea5"/></marker></defs>
+  <style>
+    .actor{fill:#e8f1fb;stroke:#3a6ea5;stroke-width:1.5;rx:8}
+    .life{stroke:#9fb3c8;stroke-dasharray:4 4}
+    .msg{stroke:#3a6ea5;stroke-width:1.6;fill:none;marker-end:url(#a)}
+    .t{fill:#233}
+    .small{font-size:12px;fill:#556}
+    .title{font-size:20px;font-weight:700;fill:#1f3b5c}
+    .note{fill:#fff7e6;stroke:#d9932a;rx:6}
+  </style>
+  <text x="550" y="30" text-anchor="middle" class="title">OAuth2.0 授权码 + PKCE 单点登录时序</text>
+
+  <rect x="60" y="55" width="160" height="40" class="actor"/><text x="140" y="80" text-anchor="middle" class="t">集团员工（浏览器）</text>
+  <rect x="330" y="55" width="160" height="40" class="actor"/><text x="410" y="80" text-anchor="middle" class="t">业务系统（如 SRM）</text>
+  <rect x="600" y="55" width="160" height="40" class="actor"/><text x="680" y="80" text-anchor="middle" class="t">OA 授权服务器</text>
+  <rect x="870" y="55" width="160" height="40" class="actor"/><text x="950" y="80" text-anchor="middle" class="t">OA 用户 / 员工库</text>
+  <line x1="140" y1="95" x2="140" y2="530" class="life"/>
+  <line x1="410" y1="95" x2="410" y2="530" class="life"/>
+  <line x1="680" y1="95" x2="680" y2="530" class="life"/>
+  <line x1="950" y1="95" x2="950" y2="530" class="life"/>
+
+  <path d="M140,125 L405,125" class="msg"/><text x="272" y="118" text-anchor="middle" class="small">1. 访问业务系统，未登录</text>
+  <path d="M410,160 L145,160" class="msg"/><text x="272" y="153" text-anchor="middle" class="small">2. 生成 code_verifier / code_challenge，跳转授权</text>
+  <path d="M140,195 L675,195" class="msg"/><text x="410" y="188" text-anchor="middle" class="small">3. GET /api/oauth/authorize?client_id&amp;redirect_uri&amp;scope&amp;state&amp;code_challenge</text>
+  <path d="M680,230 L945,230" class="msg"/><text x="815" y="223" text-anchor="middle" class="small">4. 校验账号密码 + UserAccessService.isActive</text>
+  <path d="M950,255 L685,255" class="msg" stroke-dasharray="5 3"/><text x="815" y="248" text-anchor="middle" class="small">在职且账号启用</text>
+  <path d="M680,290 L145,290" class="msg"/><text x="410" y="283" text-anchor="middle" class="small">5. 302 redirect_uri?code=…&amp;state=…（用户确认授权后）</text>
+  <path d="M140,320 L405,320" class="msg"/><text x="272" y="313" text-anchor="middle" class="small">6. 携 code 回到业务系统</text>
+  <path d="M410,355 L675,355" class="msg"/><text x="542" y="348" text-anchor="middle" class="small">7. POST /api/oauth/token grant_type=authorization_code + code_verifier</text>
+  <rect x="560" y="370" width="240" height="60" class="note"/>
+  <text x="680" y="390" text-anchor="middle" class="small">单事务：校验 PKCE → 再次校验账号有效</text>
+  <text x="680" y="406" text-anchor="middle" class="small">→ 授权码置 used → 签发 access/refresh</text>
+  <text x="680" y="422" text-anchor="middle" class="small">任一步失败整体回滚（PR #25/#26）</text>
+  <path d="M680,450 L415,450" class="msg"/><text x="542" y="443" text-anchor="middle" class="small">8. access_token / refresh_token / expires_in</text>
+  <path d="M410,485 L675,485" class="msg"/><text x="542" y="478" text-anchor="middle" class="small">9. GET /api/oauth/userinfo · POST /introspect（按需）</text>
+  <path d="M410,518 L145,518" class="msg"/><text x="272" y="511" text-anchor="middle" class="small">10. 登录完成，进入业务系统</text>
+</svg>
