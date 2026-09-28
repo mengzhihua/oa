@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 520" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3a6ea5"/></marker></defs>
+  <style>
+    .box{fill:#fff;stroke:#3a6ea5;stroke-width:1.5;rx:8}
+    .hl{fill:#e8f1fb}
+    .lane{fill:#f7f9fc;stroke:#dde5ef;rx:10}
+    .title{font-size:16px;font-weight:700;fill:#1f3b5c}
+    .t{fill:#233}
+    .small{font-size:12px;fill:#556}
+    .ar{stroke:#3a6ea5;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  </style>
+  <text x="550" y="30" text-anchor="middle" class="title" font-size="20">人事 → 考勤 → 审批 → 工资 业务闭环</text>
+
+  <rect x="30" y="55" width="1040" height="100" class="lane"/>
+  <text x="45" y="78" class="title">组织人事</text>
+  <rect x="60" y="95" width="130" height="44" class="box"/><text x="125" y="122" text-anchor="middle" class="t">部门/岗位/职级</text>
+  <rect x="230" y="95" width="130" height="44" class="box"/><text x="295" y="122" text-anchor="middle" class="t">入职建档</text>
+  <rect x="400" y="95" width="130" height="44" class="box"/><text x="465" y="122" text-anchor="middle" class="t">转正 / 调岗</text>
+  <rect x="570" y="95" width="130" height="44" class="box"/><text x="635" y="122" text-anchor="middle" class="t">合同管理</text>
+  <rect x="740" y="95" width="130" height="44" class="box hl"/><text x="805" y="115" text-anchor="middle" class="t">离职</text><text x="805" y="131" text-anchor="middle" class="small">到期自动停用账号</text>
+  <rect x="910" y="95" width="130" height="44" class="box"/><text x="975" y="122" text-anchor="middle" class="t">自动开通 OA 账号</text>
+  <path d="M190,117 L230,117" class="ar"/><path d="M360,117 L400,117" class="ar"/><path d="M530,117 L570,117" class="ar"/><path d="M700,117 L740,117" class="ar"/>
+  <path d="M295,95 C295,70 975,70 975,95" class="ar"/>
+
+  <rect x="30" y="175" width="1040" height="100" class="lane"/>
+  <text x="45" y="198" class="title">考勤管理</text>
+  <rect x="60" y="215" width="130" height="44" class="box"/><text x="125" y="242" text-anchor="middle" class="t">班次 / 排班</text>
+  <rect x="230" y="215" width="130" height="44" class="box"/><text x="295" y="242" text-anchor="middle" class="t">打卡（迟到/早退）</text>
+  <rect x="400" y="215" width="130" height="44" class="box"/><text x="465" y="242" text-anchor="middle" class="t">请假/加班/出差/补卡</text>
+  <rect x="570" y="215" width="130" height="44" class="box"/><text x="635" y="242" text-anchor="middle" class="t">节假日 / 假期余额</text>
+  <rect x="740" y="215" width="130" height="44" class="box hl"/><text x="805" y="235" text-anchor="middle" class="t">月度汇总</text><text x="805" y="251" text-anchor="middle" class="small">锁定后方可算薪</text>
+  <path d="M190,237 L230,237" class="ar"/><path d="M360,237 L400,237" class="ar"/><path d="M530,237 L570,237" class="ar"/><path d="M700,237 L740,237" class="ar"/>
+
+  <rect x="30" y="295" width="1040" height="100" class="lane"/>
+  <text x="45" y="318" class="title">审批中心</text>
+  <rect x="60" y="335" width="130" height="44" class="box"/><text x="125" y="362" text-anchor="middle" class="t">流程定义（JSON）</text>
+  <rect x="230" y="335" width="130" height="44" class="box"/><text x="295" y="362" text-anchor="middle" class="t">发起申请</text>
+  <rect x="400" y="335" width="130" height="44" class="box"/><text x="465" y="355" text-anchor="middle" class="t">条件分支</text><text x="465" y="371" text-anchor="middle" class="small">金额/天数路由</text>
+  <rect x="570" y="335" width="130" height="44" class="box"/><text x="635" y="355" text-anchor="middle" class="t">多级审批</text><text x="635" y="371" text-anchor="middle" class="small">同意/驳回/转办/撤回</text>
+  <rect x="740" y="335" width="130" height="44" class="box hl"/><text x="805" y="355" text-anchor="middle" class="t">业务回调</text><text x="805" y="371" text-anchor="middle" class="small">请假生效 / 余额扣减</text>
+  <rect x="910" y="335" width="130" height="44" class="box"/><text x="975" y="355" text-anchor="middle" class="t">控制塔 Open IR</text><text x="975" y="371" text-anchor="middle" class="small">发起 / 读待办 / 审批</text>
+  <path d="M190,357 L230,357" class="ar"/><path d="M360,357 L400,357" class="ar"/><path d="M530,357 L570,357" class="ar"/><path d="M700,357 L740,357" class="ar"/><path d="M910,357 L870,357" class="ar"/>
+  <path d="M465,335 L465,259" class="ar"/>
+
+  <rect x="30" y="415" width="1040" height="95" class="lane"/>
+  <text x="45" y="438" class="title">工资管理</text>
+  <rect x="60" y="452" width="130" height="44" class="box"/><text x="125" y="472" text-anchor="middle" class="t">薪资项目 / 方案</text><text x="125" y="488" text-anchor="middle" class="small">社保规则 · 税率表</text>
+  <rect x="230" y="452" width="130" height="44" class="box"/><text x="295" y="479" text-anchor="middle" class="t">OPEN 期间</text>
+  <rect x="400" y="452" width="130" height="44" class="box hl"/><text x="465" y="472" text-anchor="middle" class="t">CALCULATED</text><text x="465" y="488" text-anchor="middle" class="small">加班/迟到/累计预扣个税</text>
+  <rect x="570" y="452" width="130" height="44" class="box"/><text x="635" y="479" text-anchor="middle" class="t">APPROVED</text>
+  <rect x="740" y="452" width="130" height="44" class="box"/><text x="805" y="472" text-anchor="middle" class="t">PAID</text><text x="805" y="488" text-anchor="middle" class="small">员工可见工资条</text>
+  <rect x="910" y="452" width="130" height="44" class="box"/><text x="975" y="472" text-anchor="middle" class="t">CLOSED</text><text x="975" y="488" text-anchor="middle" class="small">人力成本报表</text>
+  <path d="M190,474 L230,474" class="ar"/><path d="M360,474 L400,474" class="ar"/><path d="M530,474 L570,474" class="ar"/><path d="M700,474 L740,474" class="ar"/><path d="M870,474 L910,474" class="ar"/>
+  <path d="M805,259 C805,290 1055,290 1055,430 C1055,455 480,430 465,452" class="ar" stroke-dasharray="5 4"/>
+</svg>
